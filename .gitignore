@@ -12,3 +12,4 @@ wheels/
 logs
 data
 models
+.git_m*
