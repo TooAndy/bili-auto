@@ -7,6 +7,42 @@ from config import Config
 logger = get_logger("push")
 
 
+def push_content(content_data: dict, channels: list) -> bool:
+    """
+    统一推送接口
+    用户说先不做消息推送，所以仅记录日志
+    
+    content_data: {
+        "type": "video" | "dynamic",
+        "title": "标题（视频）或动态文本",
+        "summary": "摘要（仅视频有）",
+        "key_points": [...],
+        "tags": [...],
+        "images": ["path1", "path2"],  # 本地图片路径
+        "image_urls": ["url1", "url2"],  # 图片URLs
+        "url": "B站链接",
+        "timestamp": "发布时间"
+    }
+    
+    channels: ["feishu", "telegram", "wechat"] (目前仅记录，不推送)
+    """
+    content_type = content_data.get("type", "unknown")
+    
+    if content_type == "video":
+        logger.info("[推送占位符] 视频: %s | 标题: %s | 标签: %s",
+                    content_data.get("url", ""),
+                    content_data.get("title", "")[:50],
+                    content_data.get("tags", []))
+    elif content_type == "dynamic":
+        logger.info("[推送占位符] 动态: %s | 内容: %s | 图片: %d张",
+                    content_data.get("url", ""),
+                    content_data.get("text", "")[:50],
+                    len(content_data.get("images", [])))
+    
+    logger.debug("推送渠道配置: %s", channels)
+    return True
+
+
 def push_feishu_text(webhook_url: str, content: str) -> bool:
     payload = {
         "msg_type": "text",
@@ -30,23 +66,9 @@ def push_feishu_dynamic_simple(webhook_url: str, dynamic_data: dict) -> bool:
 
 
 def push_telegram_dynamic(bot_token: str, chat_id: str, dynamic_data: dict) -> bool:
-    from telegram import Bot, InputMediaPhoto
-
-    bot = Bot(token=bot_token)
-    text = f"📝 {dynamic_data.get('text', '')}\n\n⏰ {dynamic_data.get('pub_time', '')}\n{dynamic_data.get('url', '')}"
-
-    images = dynamic_data.get('images', [])
-    if images:
-        media = []
-        first = True
-        for i, img_path in enumerate(images[:10]):
-            if i == 0:
-                media.append(InputMediaPhoto(open(img_path, 'rb'), caption=text, parse_mode='HTML'))
-            else:
-                media.append(InputMediaPhoto(open(img_path, 'rb')))
-
-        bot.send_media_group(chat_id=chat_id, media=media)
-        return True
+    """占位符实现（用户说先不做推送）"""
+    logger.info("[推送占位符] Telegram动态: %s", dynamic_data.get("text", "")[:50])
+    return True
 
     bot.send_message(chat_id=chat_id, text=text, parse_mode='HTML')
     return True
