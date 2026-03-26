@@ -287,22 +287,30 @@ def start_queue_worker(max_workers: int = 3):
                         time.sleep(30)
                         continue
 
-                    # 提交动态任务
+                    # 提交动态任务 - 先更新状态为 processing
                     for dyn in pending_dynamics:
+                        dyn.status = "processing"
+                        db.commit()
                         executor.submit(process_single_dynamic, dyn.dynamic_id)
 
-                    # 提交已失败但可重试的动态
+                    # 提交已失败但可重试的动态 - 先更新状态为 processing
                     for dyn in retry_dynamics:
                         logger.info("重新处理失败动态: %s (第%d次重试)", dyn.dynamic_id, dyn.attempt_count + 1)
+                        dyn.status = "processing"
+                        db.commit()
                         executor.submit(process_single_dynamic, dyn.dynamic_id)
 
-                    # 提交视频任务
+                    # 提交视频任务 - 先更新状态为 processing
                     for vid in pending_videos:
+                        vid.status = "processing"
+                        db.commit()
                         executor.submit(process_single_video, vid.bvid)
 
-                    # 提交已失败但可重试的视频
+                    # 提交已失败但可重试的视频 - 先更新状态为 processing
                     for vid in retry_videos:
                         logger.info("重新处理失败视频: %s (第%d次重试)", vid.bvid, vid.attempt_count + 1)
+                        vid.status = "processing"
+                        db.commit()
                         executor.submit(process_single_video, vid.bvid)
 
                     time.sleep(5)
