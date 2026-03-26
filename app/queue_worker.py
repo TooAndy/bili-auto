@@ -8,7 +8,7 @@ from app.utils.logger import get_logger
 from app.models.database import get_db, Video, Dynamic
 from app.modules.subtitle import get_subtitles
 from app.modules.downloader import download_audio
-from app.modules.asr import transcribe_audio
+from app.modules.whisper_ai import transcribe_audio
 from app.modules.processor import process_text
 from app.modules.push import push_content
 from app.modules.dynamic import should_push_dynamic

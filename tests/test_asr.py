@@ -1,5 +1,5 @@
 """
-测试 ASR 相关模块 - whisper_ai.py, asr.py
+测试 ASR 相关模块 - whisper_ai.py
 """
 import os
 from pathlib import Path
@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.modules import whisper_ai
-from app.modules import asr
 
 
 def test_whisper_transcribe_import():
@@ -22,23 +21,13 @@ def test_whisper_transcribe_function_signature(sample_wav_path):
     assert callable(whisper_ai.transcribe_audio)
 
 
-def test_asr_get_transcribe_function_whisper():
-    """测试：返回 whisper 函数"""
-    func = asr.get_transcribe_function()
-
-    # 应该返回 whisper_ai.transcribe_audio
-    assert func.__name__ == 'transcribe_audio' or 'whisper' in func.__module__
-
-
-def test_asr_transcribe_audio_interface(sample_wav_path):
-    """测试：统一 ASR 接口可以被调用"""
+def test_whisper_transcribe_audio_interface(sample_wav_path):
+    """测试：whisper transcribe_audio 接口可以被调用"""
     # mock whisper 的 transcribe_audio
     with patch('app.modules.whisper_ai.transcribe_audio') as mock_transcribe:
         mock_transcribe.return_value = "这是测试转录文本"
 
-        # 重置 _transcribe 缓存
-        asr._transcribe = None
-        result = asr.transcribe_audio(sample_wav_path)
+        result = whisper_ai.transcribe_audio(sample_wav_path)
 
     mock_transcribe.assert_called_once_with(sample_wav_path)
     assert result == "这是测试转录文本"
@@ -73,22 +62,18 @@ def test_whisper_integration_real_transcribe(sample_wav_path):
 
 
 @pytest.mark.integration
-def test_asr_unified_integration(sample_wav_path):
-    """集成测试：测试统一 ASR 接口"""
+def test_whisper_integration(sample_wav_path):
+    """集成测试：测试 Whisper 接口"""
     print("\n" + "="*60)
-    print("测试统一 ASR 接口")
+    print("测试 Whisper 接口")
     print("="*60)
-
-    # 重置缓存
-    asr._transcribe = None
 
     # 测试: 使用 Whisper
     print("\n--- 测试 Whisper ---")
     with patch('app.modules.whisper_ai.transcribe_audio') as mock_whisper:
         mock_whisper.return_value = "测试 Whisper 结果"
-        asr._transcribe = None
-        result = asr.transcribe_audio(sample_wav_path)
+        result = whisper_ai.transcribe_audio(sample_wav_path)
         assert result == "测试 Whisper 结果"
         print("✓ Whisper 接口测试通过")
 
-    print("\n✓ 统一 ASR 接口测试完成")
+    print("\n✓ Whisper 接口测试完成")
