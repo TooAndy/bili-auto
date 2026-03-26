@@ -17,3 +17,4 @@ logs
 data
 models
 .git_m*
+.DS_Store

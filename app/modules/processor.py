@@ -147,7 +147,7 @@ def process_text(
         # 解析响应
         result = _parse_process_response(response_text, raw_text)
 
-        logger.info("LLM 处理完成，摘要: %d字", len(result.get("summary", "")))
+        logger.debug("LLM 处理完成，摘要: %d字", len(result.get("summary", "")))
         result["success"] = True
         return result
 
