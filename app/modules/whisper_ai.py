@@ -1,5 +1,6 @@
 import os
 import subprocess
+import tempfile
 from pathlib import Path
 from app.utils.logger import get_logger
 from config import Config
@@ -66,38 +67,50 @@ def _transcribe_with_cpp(audio_path: str) -> str:
     if not WHISPER_CPP_MODEL.exists():
         raise RuntimeError(f"whisper 模型不存在: {WHISPER_CPP_MODEL}")
 
-    cmd = [
-        str(WHISPER_CPP_CLI),
-        "-m", str(WHISPER_CPP_MODEL),
-        "-f", str(audio_path),
-        "-l", "zh",
-        "--output-txt",  # 输出 txt 文件
-        "--output-file", "/tmp/whisper_out"  # 输出文件前缀
-    ]
+    # 使用随机文件名避免多进程冲突
+    with tempfile.NamedTemporaryFile(prefix="whisper_out_", suffix="", delete=False, dir="/tmp") as f:
+        output_prefix = f.name
 
-    logger.debug("执行命令: %s", " ".join(cmd))
+    try:
+        cmd = [
+            str(WHISPER_CPP_CLI),
+            "-m", str(WHISPER_CPP_MODEL),
+            "-f", str(audio_path),
+            "-l", "zh",
+            "--output-txt",  # 输出 txt 文件
+            "--output-file", output_prefix  # 输出文件前缀
+        ]
 
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+        logger.debug("执行命令: %s", " ".join(cmd))
 
-    if proc.returncode != 0:
-        logger.error("whisper.cpp 失败: %s", proc.stderr)
-        raise RuntimeError(f"whisper.cpp 识别失败: {proc.stderr}")
+        proc = subprocess.run(cmd, capture_output=True, text=True)
 
-    # 读取输出文件
-    output_file = Path("/tmp/whisper_out.txt")
-    if output_file.exists():
-        text = output_file.read_text("utf-8").strip()
-        # 清理输出文件
+        if proc.returncode != 0:
+            logger.error("whisper.cpp 失败: %s", proc.stderr)
+            raise RuntimeError(f"whisper.cpp 识别失败: {proc.stderr}")
+
+        # 读取输出文件
+        output_file = Path(f"{output_prefix}.txt")
+        if output_file.exists():
+            text = output_file.read_text("utf-8").strip()
+            # 清理输出文件
+            try:
+                output_file.unlink()
+            except:
+                pass
+        else:
+            # 如果没有输出文件，从 stdout 解析
+            text = proc.stdout.strip()
+
+        logger.info("whisper.cpp 完成，文本长度 %d", len(text))
+        return text
+    finally:
+        # 清理临时文件（如果还存在）
         try:
-            output_file.unlink()
+            Path(output_prefix).unlink(missing_ok=True)
+            Path(f"{output_prefix}.txt").unlink(missing_ok=True)
         except:
             pass
-    else:
-        # 如果没有输出文件，从 stdout 解析
-        text = proc.stdout.strip()
-
-    logger.info("whisper.cpp 完成，文本长度 %d", len(text))
-    return text
 
 
 def _transcribe_with_faster_whisper(audio_path: str) -> str:
