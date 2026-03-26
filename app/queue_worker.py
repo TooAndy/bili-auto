@@ -38,48 +38,54 @@ def process_single_video(bvid: str):
         video.status = "processing"
         db.commit()
 
-        # 第1步：获取字幕
-        logger.debug("[字幕] 尝试从B站获取...")
-        subtitles = get_subtitles(bvid)
-        video.has_subtitle = bool(subtitles)
-
-        if subtitles:
-            logger.debug("[字幕] 获取成功，长度: %d", len(subtitles))
+        # 第0步：检查是否已有识别后的文本
+        text_file = TEXT_DIR / f"{bvid}.txt"
+        if text_file.exists():
+            logger.debug("[文本] 发现已有识别文本，直接使用: %s", text_file)
+            subtitles = text_file.read_text("utf-8")
         else:
-            # 第2步：检查是否已下载过音频
-            audio_path = None
-            if video.has_audio and video.audio_path:
-                # 检查音频文件是否还存在
-                if os.path.exists(video.audio_path):
-                    logger.debug("[音频] 复用已有音频文件: %s", video.audio_path)
-                    audio_path = video.audio_path
-                else:
-                    logger.warning("[音频] 音频文件不存在，重新下载: %s", video.audio_path)
-                    video.has_audio = False
-                    video.audio_path = None
+            # 第1步：获取字幕
+            logger.debug("[字幕] 尝试从B站获取...")
+            subtitles = get_subtitles(bvid)
+            video.has_subtitle = bool(subtitles)
 
-            # 下载音频（如果需要）
-            if not audio_path:
-                logger.debug("[Whisper] 开始下载音频...")
-                try:
-                    audio_path = download_audio(bvid)
-                    video.has_audio = True
-                    video.audio_path = audio_path
-                    logger.debug("[Whisper] 音频下载完成: %s", audio_path)
-                except Exception as e:
-                    logger.error("[Whisper] 音频下载失败: %s", e)
-                    subtitles = ""
-                    audio_path = None
+            if subtitles:
+                logger.debug("[字幕] 获取成功，长度: %d", len(subtitles))
+            else:
+                # 第2步：检查是否已下载过音频
+                audio_path = None
+                if video.has_audio and video.audio_path:
+                    # 检查音频文件是否还存在
+                    if os.path.exists(video.audio_path):
+                        logger.debug("[音频] 复用已有音频文件: %s", video.audio_path)
+                        audio_path = video.audio_path
+                    else:
+                        logger.warning("[音频] 音频文件不存在，重新下载: %s", video.audio_path)
+                        video.has_audio = False
+                        video.audio_path = None
 
-            # 用ASR转写
-            if audio_path:
-                logger.debug("[Whisper] 开始识别...")
-                try:
-                    subtitles = transcribe_audio(audio_path)
-                    logger.debug("[Whisper] 识别完成，长度: %d", len(subtitles))
-                except Exception as e:
-                    logger.error("[Whisper] 音频识别失败: %s", e)
-                    subtitles = ""
+                # 下载音频（如果需要）
+                if not audio_path:
+                    logger.debug("[Whisper] 开始下载音频...")
+                    try:
+                        audio_path = download_audio(bvid)
+                        video.has_audio = True
+                        video.audio_path = audio_path
+                        logger.debug("[Whisper] 音频下载完成: %s", audio_path)
+                    except Exception as e:
+                        logger.error("[Whisper] 音频下载失败: %s", e)
+                        subtitles = ""
+                        audio_path = None
+
+                # 用ASR转写
+                if audio_path:
+                    logger.debug("[Whisper] 开始识别...")
+                    try:
+                        subtitles = transcribe_audio(audio_path)
+                        logger.debug("[Whisper] 识别完成，长度: %d", len(subtitles))
+                    except Exception as e:
+                        logger.error("[Whisper] 音频识别失败: %s", e)
+                        subtitles = ""
 
         # 第3步：统一 LLM 处理（纠错 + 总结）
         if subtitles:
@@ -100,11 +106,12 @@ def process_single_video(bvid: str):
             video.summary_json = json.dumps(summary_data, ensure_ascii=False)
             logger.debug("[LLM] 处理完成")
 
-            # 保存文本和 details 到文件
+            # 保存文本和 details 到文件（如果还没保存过）
             if subtitles:
                 text_file = TEXT_DIR / f"{bvid}.txt"
-                text_file.write_text(subtitles, "utf-8")
-                logger.debug("[保存] 文本已保存: %s", text_file)
+                if not text_file.exists():
+                    text_file.write_text(subtitles, "utf-8")
+                    logger.debug("[保存] 文本已保存: %s", text_file)
 
             if summary_data.get("details"):
                 md_file = MARKDOWN_DIR / f"{bvid}.md"
