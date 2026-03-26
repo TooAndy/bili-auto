@@ -2328,6 +2328,49 @@ tail -f logs/bili.log
 
 ---
 
+## 运行 & 维护注意事项（必读）
+
+1. 启动顺序
+   - `uv run python init_setup.py`（只需一次）
+   - `uv run python main.py`
+
+2. 环境变量
+   - `.env` 必须包含 `FEISHU_WEBHOOK`, `OPENAI_API_KEY` 等。
+   - `BILIBILI_COOKIE` 可选但推荐，用于避免限速。
+
+3. 依赖管理（uv）
+   - `uv sync` 安装 pyproject 依赖
+   - `uv run` 执行脚本
+
+4. 日志和监控
+   - `tail -f logs/bili.log`
+   - 遇到 429 / API 失败，使用 `app/modules/bilibili.py` 中 cookie / UA 策略
+
+5. 数据库恢复
+   - SQLite 默认路径 `data/bili.db`
+   - 若失败可手动备份并 `rm` 再运行 `init_setup.py`
+
+6. 动态 + 视频策略
+   - 动态频率 5 分钟，视频频率 10 分钟
+   - 推送失败时可根据 `dynamics.status` / `videos.status` 做重试
+
+7. 代码改进建议
+   - `app/modules/llm.py` 对接本地 LLM（后期推荐）
+   - `app/modules/push.py` 哪里添加失败重试机制
+   - `app/queue_worker.py` 可以加任务限流、超时 recover
+
+8. 生产部署
+   - macOS: LaunchAgent
+   - Linux: systemd
+   - 加 `cron` 或 `uv run python main.py`（后台）
+
+9. 安全与隐私
+   - `.env` 不要上传 Git
+   - 依赖安全扫描 `uv run safety check`（可选）
+
+
+---
+
 ## 配置指南
 
 ### 飞书机器人
