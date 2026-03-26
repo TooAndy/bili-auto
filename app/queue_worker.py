@@ -1,6 +1,7 @@
 import time
 import json
 import os
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from app.utils.logger import get_logger
@@ -13,6 +14,15 @@ from app.modules.push import push_content
 from app.modules.dynamic import should_push_dynamic
 
 logger = get_logger("queue_worker")
+
+# 数据保存路径
+DATA_ROOT = Path(__file__).resolve().parent.parent / "data"
+TEXT_DIR = DATA_ROOT / "text"
+MARKDOWN_DIR = DATA_ROOT / "markdown"
+
+# 确保目录存在
+TEXT_DIR.mkdir(parents=True, exist_ok=True)
+MARKDOWN_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def process_single_video(bvid: str):
@@ -89,6 +99,22 @@ def process_single_video(bvid: str):
             }
             video.summary_json = json.dumps(summary_data, ensure_ascii=False)
             logger.debug("[LLM] 处理完成")
+
+            # 保存文本和 details 到文件
+            if subtitles:
+                text_file = TEXT_DIR / f"{bvid}.txt"
+                text_file.write_text(subtitles, "utf-8")
+                logger.debug("[保存] 文本已保存: %s", text_file)
+
+            if summary_data.get("details"):
+                md_file = MARKDOWN_DIR / f"{bvid}.md"
+                md_content = f"# {video.title}\n\n"
+                md_content += f"**URL**: https://www.bilibili.com/video/{bvid}\n\n"
+                md_content += f"**发布时间**: {video.pub_time or '未知'}\n\n"
+                md_content += "---\n\n"
+                md_content += summary_data["details"]
+                md_file.write_text(md_content, "utf-8")
+                logger.debug("[保存] 详情已保存: %s", md_file)
         else:
             logger.warning("[LLM] 无字幕和音频，跳过处理")
             summary_data = {
