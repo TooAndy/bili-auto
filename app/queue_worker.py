@@ -1,12 +1,14 @@
 import time
 import json
+import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from app.utils.logger import get_logger
 from app.models.database import get_db, Video, Dynamic
 from app.modules.subtitle import get_subtitles
 from app.modules.downloader import download_audio
-from app.modules.whisper_ai import transcribe_audio
+from app.modules.asr import transcribe_audio
+from app.modules.correction import correct_text
 from app.modules.llm import summarize
 from app.modules.push import push_content
 from app.modules.dynamic import should_push_dynamic
@@ -31,22 +33,57 @@ def process_single_video(bvid: str):
         logger.debug("[字幕] 尝试从B站获取...")
         subtitles = get_subtitles(bvid)
         video.has_subtitle = bool(subtitles)
-        
+
         if subtitles:
             logger.debug("[字幕] 获取成功，长度: %d", len(subtitles))
         else:
-            # 第2步：字幕失败，用Whisper转写
-            logger.debug("[Whisper] 开始下载音频并识别...")
-            try:
-                audio_path = download_audio(bvid)
-                subtitles = transcribe_audio(audio_path)
-                video.has_audio = True
-                video.audio_path = audio_path
-                logger.debug("[Whisper] 识别完成，长度: %d", len(subtitles))
-            except Exception as e:
-                logger.error("[Whisper] 音频处理失败: %s", e)
-                subtitles = ""
-        
+            # 第2步：检查是否已下载过音频
+            audio_path = None
+            if video.has_audio and video.audio_path:
+                # 检查音频文件是否还存在
+                if os.path.exists(video.audio_path):
+                    logger.debug("[音频] 复用已有音频文件: %s", video.audio_path)
+                    audio_path = video.audio_path
+                else:
+                    logger.warning("[音频] 音频文件不存在，重新下载: %s", video.audio_path)
+                    video.has_audio = False
+                    video.audio_path = None
+
+            # 下载音频（如果需要）
+            if not audio_path:
+                logger.debug("[Whisper] 开始下载音频...")
+                try:
+                    audio_path = download_audio(bvid)
+                    video.has_audio = True
+                    video.audio_path = audio_path
+                    logger.debug("[Whisper] 音频下载完成: %s", audio_path)
+                except Exception as e:
+                    logger.error("[Whisper] 音频下载失败: %s", e)
+                    subtitles = ""
+                    audio_path = None
+
+            # 用ASR转写
+            if audio_path:
+                logger.debug("[Whisper] 开始识别...")
+                try:
+                    subtitles = transcribe_audio(audio_path)
+                    logger.debug("[Whisper] 识别完成，长度: %d", len(subtitles))
+
+                    # 第2.5步：LLM 纠错（如果有识别文本）
+                    if subtitles:
+                        logger.debug("[纠错] 开始 LLM 文本纠错...")
+                        correction_result = correct_text(subtitles, video_title=video.title)
+                        if correction_result["success"]:
+                            subtitles = correction_result["corrected_text"]
+                            # 保存大纲到额外字段（可选）
+                            if correction_result["outline"]:
+                                logger.debug("[纠错] 获得内容大纲")
+                        logger.debug("[纠错] 完成，最终文本长度: %d", len(subtitles))
+
+                except Exception as e:
+                    logger.error("[Whisper] 音频识别失败: %s", e)
+                    subtitles = ""
+
         # 第3步：LLM总结
         if subtitles:
             logger.debug("[LLM] 开始总结...")

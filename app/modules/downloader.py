@@ -1,4 +1,5 @@
 import subprocess
+import os
 from pathlib import Path
 from app.utils.logger import get_logger
 
@@ -8,8 +9,14 @@ logger = get_logger("downloader")
 def download_audio(bvid: str, output_dir: str = "data/audio") -> str:
     outdir = Path(output_dir)
     outdir.mkdir(parents=True, exist_ok=True)
-    output_template = str(outdir / f"{bvid}.wav")
+    output_path = outdir / f"{bvid}.wav"
 
+    # 检查文件是否已存在
+    if output_path.exists():
+        logger.info("音频文件已存在，跳过下载: %s", output_path)
+        return str(output_path)
+
+    output_template = str(output_path)
     cmd = [
         "yt-dlp",
         "-x",

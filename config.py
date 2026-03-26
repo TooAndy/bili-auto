@@ -36,3 +36,13 @@ class Config:
     # 调度间隔（分钟）
     VIDEO_CHECK_INTERVAL = int(os.getenv("VIDEO_CHECK_INTERVAL", "10"))
     DYNAMIC_CHECK_INTERVAL = int(os.getenv("DYNAMIC_CHECK_INTERVAL", "5"))
+
+    # ASR 语音识别配置
+    # Whisper 模型: tiny|base|small|medium|large
+    WHISPER_MODEL = os.getenv("WHISPER_MODEL", "small")
+    WHISPER_DEVICE = os.getenv("WHISPER_DEVICE", "cpu")  # cpu|cuda
+
+    # Whisper.cpp 配置（可选）
+    USE_WHISPER_CPP = os.getenv("USE_WHISPER_CPP", "false").lower() == "true"
+    WHISPER_CPP_CLI = os.getenv("WHISPER_CPP_CLI", "")
+    WHISPER_CPP_MODEL = os.getenv("WHISPER_CPP_MODEL", "")

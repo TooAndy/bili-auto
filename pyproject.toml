@@ -12,6 +12,7 @@ dependencies = [
   "numpy==2.4.3",
   "onnxruntime==1.24.4",
   "openai==2.30.0",
+  "dashscope>=1.25.15",
   "pillow==12.1.1",
   "pydantic==2.12.5",
   "python-dotenv==1.2.2",
@@ -19,5 +20,12 @@ dependencies = [
   "requests==2.31.0",
   "schedule==1.2.0",
   "sqlalchemy==2.0.48",
-  "yt-dlp==2026.3.17"
+  "yt-dlp==2026.3.17",
 ]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8.0.0",
+  "pytest-asyncio>=0.21.0",
+]
+
