@@ -28,12 +28,12 @@ MARKDOWN_DIR.mkdir(parents=True, exist_ok=True)
 def process_single_video(bvid: str):
     """处理单个视频的完整流程"""
     db = get_db()
-    video = db.query(Video).filter_by(bvid=bvid).first()
-    if not video:
-        logger.warning("视频不存在: %s", bvid)
-        return
-
     try:
+        video = db.query(Video).filter_by(bvid=bvid).first()
+        if not video:
+            logger.warning("视频不存在: %s", bvid)
+            return
+
         logger.info("开始处理视频 %s | 标题: %s", bvid, video.title)
         video.status = "processing"
         db.commit()
@@ -152,27 +152,35 @@ def process_single_video(bvid: str):
 
     except Exception as e:
         logger.error("❌ 处理失败 %s: %s", bvid, e, exc_info=True)
-        video.status = "failed"
-        video.last_error = str(e)[:200]
-        video.attempt_count += 1
-        
-        if video.attempt_count >= 3:
-            logger.error("放弃重试: %s (已尝试3次)", bvid)
-        else:
-            logger.info("将重新入队: %s (第%d次)", bvid, video.attempt_count)
-        
-        db.commit()
+        try:
+            # 重新获取 video 对象，避免 session 问题
+            video = db.query(Video).filter_by(bvid=bvid).first()
+            if video:
+                video.status = "failed"
+                video.last_error = str(e)[:200]
+                video.attempt_count += 1
+
+                if video.attempt_count >= 3:
+                    logger.error("放弃重试: %s (已尝试3次)", bvid)
+                else:
+                    logger.info("将重新入队: %s (第%d次重试)", bvid, video.attempt_count)
+
+                db.commit()
+        except Exception as db_err:
+            logger.error("更新视频状态失败: %s", db_err)
+    finally:
+        db.close()
 
 
 def process_single_dynamic(dynamic_id: str):
     """处理单个动态的完整流程"""
     db = get_db()
-    dynamic = db.query(Dynamic).filter_by(dynamic_id=dynamic_id).first()
-    if not dynamic:
-        logger.warning("动态不存在: %s", dynamic_id)
-        return
-
     try:
+        dynamic = db.query(Dynamic).filter_by(dynamic_id=dynamic_id).first()
+        if not dynamic:
+            logger.warning("动态不存在: %s", dynamic_id)
+            return
+
         logger.info("开始处理动态 %s | 内容: %s...", dynamic_id, dynamic.text[:50])
         dynamic.status = "processing"
         db.commit()
@@ -208,16 +216,23 @@ def process_single_dynamic(dynamic_id: str):
 
     except Exception as e:
         logger.error("❌ 动态处理失败 %s: %s", dynamic_id, e, exc_info=True)
-        dynamic.status = "failed"
-        dynamic.last_error = str(e)[:200]
-        dynamic.attempt_count += 1
-        
-        if dynamic.attempt_count >= 3:
-            logger.error("放弃重试: %s (已尝试3次)", dynamic_id)
-        else:
-            logger.info("将重新入队: %s (第%d次)", dynamic_id, dynamic.attempt_count)
-        
-        db.commit()
+        try:
+            dynamic = db.query(Dynamic).filter_by(dynamic_id=dynamic_id).first()
+            if dynamic:
+                dynamic.status = "failed"
+                dynamic.last_error = str(e)[:200]
+                dynamic.attempt_count += 1
+
+                if dynamic.attempt_count >= 3:
+                    logger.error("放弃重试: %s (已尝试3次)", dynamic_id)
+                else:
+                    logger.info("将重新入队: %s (第%d次重试)", dynamic_id, dynamic.attempt_count)
+
+                db.commit()
+        except Exception as db_err:
+            logger.error("更新动态状态失败: %s", db_err)
+    finally:
+        db.close()
 
 
 def start_queue_worker(max_workers: int = 3):
@@ -225,65 +240,68 @@ def start_queue_worker(max_workers: int = 3):
     logger.info("=" * 50)
     logger.info("队列处理线程启动，max_workers=%d", max_workers)
     logger.info("=" * 50)
-    
+
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         loop_count = 0
         while True:
             loop_count += 1
-            
+
             try:
                 db = get_db()
-                
-                # 优先处理动态（处理快）
-                pending_dynamics = db.query(Dynamic).filter_by(
-                    status="pending"
-                ).order_by(Dynamic.created_at).limit(5).all()
-                
-                # 然后处理视频
-                pending_videos = db.query(Video).filter_by(
-                    status="pending"
-                ).order_by(Video.created_at).limit(5).all()
+                try:
+                    # 优先处理动态（处理快）
+                    pending_dynamics = db.query(Dynamic).filter_by(
+                        status="pending"
+                    ).order_by(Dynamic.created_at).limit(5).all()
 
-                # 处理已失败但还能重试的任务
-                retry_videos = db.query(Video).filter_by(
-                    status="failed"
-                ).filter(Video.attempt_count < 3).limit(2).all()
-                
-                retry_dynamics = db.query(Dynamic).filter_by(
-                    status="failed"
-                ).filter(Dynamic.attempt_count < 3).limit(2).all()
+                    # 然后处理视频
+                    pending_videos = db.query(Video).filter_by(
+                        status="pending"
+                    ).order_by(Video.created_at).limit(5).all()
 
-                total_pending = len(pending_dynamics) + len(pending_videos)
-                total_retry = len(retry_videos) + len(retry_dynamics)
+                    # 处理已失败但还能重试的任务
+                    retry_videos = db.query(Video).filter_by(
+                        status="failed"
+                    ).filter(Video.attempt_count < 3).limit(2).all()
 
-                if loop_count % 6 == 0:  # 每30秒（6个5秒循环）打印一次统计
-                    logger.info("[定期统计] 待处理动态: %d, 待处理视频: %d, 重试队列: %d",
-                                len(pending_dynamics), len(pending_videos), total_retry)
+                    retry_dynamics = db.query(Dynamic).filter_by(
+                        status="failed"
+                    ).filter(Dynamic.attempt_count < 3).limit(2).all()
 
-                if not pending_dynamics and not pending_videos and not retry_dynamics and not retry_videos:
-                    logger.debug("暂无待处理任务，休眠...")
-                    time.sleep(30)
-                    continue
+                    total_pending = len(pending_dynamics) + len(pending_videos)
+                    total_retry = len(retry_videos) + len(retry_dynamics)
 
-                # 提交动态任务
-                for dyn in pending_dynamics:
-                    executor.submit(process_single_dynamic, dyn.dynamic_id)
-                
-                # 提交已失败但可重试的动态
-                for dyn in retry_dynamics:
-                    logger.info("重新处理失败动态: %s (第%d次重试)", dyn.dynamic_id, dyn.attempt_count + 1)
-                    executor.submit(process_single_dynamic, dyn.dynamic_id)
+                    if loop_count % 6 == 0:  # 每30秒（6个5秒循环）打印一次统计
+                        logger.info("[定期统计] 待处理动态: %d, 待处理视频: %d, 重试队列: %d",
+                                    len(pending_dynamics), len(pending_videos), total_retry)
 
-                # 提交视频任务
-                for vid in pending_videos:
-                    executor.submit(process_single_video, vid.bvid)
-                
-                # 提交已失败但可重试的视频
-                for vid in retry_videos:
-                    logger.info("重新处理失败视频: %s (第%d次重试)", vid.bvid, vid.attempt_count + 1)
-                    executor.submit(process_single_video, vid.bvid)
+                    if not pending_dynamics and not pending_videos and not retry_dynamics and not retry_videos:
+                        logger.debug("暂无待处理任务，休眠...")
+                        time.sleep(30)
+                        continue
 
-                time.sleep(5)
+                    # 提交动态任务
+                    for dyn in pending_dynamics:
+                        executor.submit(process_single_dynamic, dyn.dynamic_id)
+
+                    # 提交已失败但可重试的动态
+                    for dyn in retry_dynamics:
+                        logger.info("重新处理失败动态: %s (第%d次重试)", dyn.dynamic_id, dyn.attempt_count + 1)
+                        executor.submit(process_single_dynamic, dyn.dynamic_id)
+
+                    # 提交视频任务
+                    for vid in pending_videos:
+                        executor.submit(process_single_video, vid.bvid)
+
+                    # 提交已失败但可重试的视频
+                    for vid in retry_videos:
+                        logger.info("重新处理失败视频: %s (第%d次重试)", vid.bvid, vid.attempt_count + 1)
+                        executor.submit(process_single_video, vid.bvid)
+
+                    time.sleep(5)
+
+                finally:
+                    db.close()
 
             except Exception as e:
                 logger.error("队列处理循环异常: %s", e, exc_info=True)
