@@ -5,6 +5,11 @@ UP主订阅管理工具
 """
 
 import sys
+import os
+
+# 添加项目根目录到Python路径
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from app.models.database import get_db, Subscription
 from datetime import datetime
 
