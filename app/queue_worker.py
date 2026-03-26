@@ -110,7 +110,11 @@ def process_single_video(bvid: str):
                 md_file = MARKDOWN_DIR / f"{bvid}.md"
                 md_content = f"# {video.title}\n\n"
                 md_content += f"**URL**: https://www.bilibili.com/video/{bvid}\n\n"
-                md_content += f"**发布时间**: {video.pub_time or '未知'}\n\n"
+                if video.pub_time:
+                    pub_time_str = datetime.fromtimestamp(video.pub_time).strftime("%Y-%m-%d %H:%M:%S")
+                    md_content += f"**发布时间**: {pub_time_str}\n\n"
+                else:
+                    md_content += "**发布时间**: 未知\n\n"
                 md_content += "---\n\n"
                 md_content += summary_data["details"]
                 md_file.write_text(md_content, "utf-8")
