@@ -81,6 +81,7 @@ def process_single_video(bvid: str):
             )
             summary_data = {
                 "summary": process_result.get("summary", ""),
+                "details": process_result.get("details", ""),
                 "key_points": process_result.get("key_points", []),
                 "tags": process_result.get("tags", []),
                 "insights": process_result.get("insights", ""),
@@ -92,6 +93,7 @@ def process_single_video(bvid: str):
             logger.warning("[LLM] 无字幕和音频，跳过处理")
             summary_data = {
                 "summary": f"无法获取字幕或音频: {video.title}",
+                "details": "",
                 "key_points": [],
                 "tags": [],
                 "insights": "",
@@ -105,6 +107,7 @@ def process_single_video(bvid: str):
             "type": "video",
             "title": video.title,
             "summary": summary_data.get("summary", ""),
+            "details": summary_data.get("details", ""),
             "key_points": summary_data.get("key_points", []),
             "tags": summary_data.get("tags", []),
             "insights": summary_data.get("insights", ""),

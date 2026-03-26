@@ -44,6 +44,7 @@ def main():
         print("=" * 60)
         print(json.dumps({
             "summary": result["summary"],
+            "details": result["details"],
             "key_points": result["key_points"],
             "tags": result["tags"],
             "insights": result["insights"]

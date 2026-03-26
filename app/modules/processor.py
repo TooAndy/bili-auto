@@ -34,20 +34,22 @@ def _load_process_prompt() -> str:
 
 1. 文本纠错与优化：
    - 将语音识别错误、口语化、不规范的表达，准确修正为正确的股票名称、公司简称、财经术语和流畅的书面语。
+   - 纠正后, 应该为通顺、专业、清晰的文本，便于后续分析和总结。
    - 修正范围包括但不限于：
-     - 公司/股票名（如："闷牛" -> "蒙牛乳业/蒙牛"；"达市了" -> "达势股份/达美乐中国"）。
+     - 公司/股票名（如："闷牛" -> "蒙牛乳业/蒙牛"；"达市" -> "达势股份/达美乐中国"）。
      - 专业术语（如："古都古西律" -> "股息派发率"；"踢" -> "做T"）。
      - 数字/时间（如："二五年" -> "2025年"）。
-     - 口语/逻辑补全（如："多差不多了" -> "都差不多躺平了"）。
+     - 口语/逻辑补全（如："多差不多了" -> "都差不多了"）。
 
 2. 内容总结：
    - summary: 一句话核心观点，50-100字
+   - details: 详细总结，基于纠正后的清晰文本，用结构化大纲概括核心内容，逻辑应清晰反映UP主的复盘或者选股思路, 应涵盖：整体市况与心态、对每只重点股票的分析与操作、后续计划、投资策略总结等关键部分。
    - key_points: 数组，3-5个关键要点，每个30-50字
    - tags: 数组，最多5个标签，要有区分度
    - insights: 1-2条有价值的洞察或拓展思考
 
 最终输出格式：
-请严格且仅输出以下三个部分，以"---"分隔。
+请严格且仅输出以下两个部分，以"---"分隔。
 
 【纠正后文本】
 [这里是纠正、优化后的完整通顺文本]
@@ -57,6 +59,7 @@ def _load_process_prompt() -> str:
 【内容总结】
 {
   "summary": "一句话核心观点",
+  "details": "详细总结内容",
   "key_points": ["要点1", "要点2", "要点3"],
   "tags": ["标签1", "标签2"],
   "insights": "洞察内容"
@@ -87,6 +90,7 @@ def process_text(
         dict: {
             "corrected_text": "纠正后的文本",
             "summary": "摘要",
+            "details": "详细总结内容",
             "key_points": [],
             "tags": [],
             "insights": "",
@@ -100,6 +104,7 @@ def process_text(
         return {
             "corrected_text": "",
             "summary": "",
+            "details": "",
             "key_points": [],
             "tags": [],
             "insights": "",
@@ -157,6 +162,7 @@ def _parse_process_response(text: str, raw_text: str) -> dict:
     corrected_text = raw_text
     summary_data = {
         "summary": "",
+        "details": "",
         "key_points": [],
         "tags": [],
         "insights": ""
@@ -185,6 +191,7 @@ def _parse_process_response(text: str, raw_text: str) -> dict:
 
     # 规范化数据
     summary = str(summary_data.get("summary", "")).strip()[:200]
+    details = str(summary_data.get("details", "")).strip()
 
     key_points = summary_data.get("key_points", [])
     if not isinstance(key_points, list):
@@ -205,6 +212,7 @@ def _parse_process_response(text: str, raw_text: str) -> dict:
     return {
         "corrected_text": corrected_text,
         "summary": summary,
+        "details": details,
         "key_points": key_points,
         "tags": tags,
         "insights": insights
@@ -249,6 +257,7 @@ def _process_local(raw_text: str, video_title: str, duration: int) -> dict:
     return {
         "corrected_text": raw_text,
         "summary": summary,
+        "details": "",
         "key_points": key_points[:5],
         "tags": tags,
         "insights": "此总结由本地简易算法生成，可启用 OPENAI_API_KEY 获得更高质量的分析。",
