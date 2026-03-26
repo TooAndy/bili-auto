@@ -67,6 +67,35 @@ def _transcribe_with_cpp(audio_path: str) -> str:
     if not WHISPER_CPP_MODEL.exists():
         raise RuntimeError(f"whisper 模型不存在: {WHISPER_CPP_MODEL}")
 
+    input_path = Path(audio_path)
+    temp_wav = None
+
+    # 如果不是 wav 格式，先用 ffmpeg 转换
+    if not input_path.suffix.lower() == ".wav":
+        logger.debug("音频非 wav 格式，使用 ffmpeg 转换: %s", input_path.suffix)
+        with tempfile.NamedTemporaryFile(prefix="whisper_input_", suffix=".wav", delete=False, dir="/tmp") as f:
+            temp_wav = Path(f.name)
+
+        # 使用 ffmpeg 转换
+        ffmpeg_cmd = [
+            "ffmpeg",
+            "-y",
+            "-i", str(input_path),
+            "-ar", "16000",
+            "-ac", "1",
+            "-c:a", "pcm_s16le",
+            str(temp_wav)
+        ]
+        logger.debug("执行 ffmpeg 转换: %s", " ".join(ffmpeg_cmd))
+        ffmpeg_proc = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+        if ffmpeg_proc.returncode != 0:
+            logger.error("ffmpeg 转换失败: %s", ffmpeg_proc.stderr)
+            raise RuntimeError(f"ffmpeg 转换失败: {ffmpeg_proc.stderr}")
+
+        input_for_whisper = str(temp_wav)
+    else:
+        input_for_whisper = str(input_path)
+
     # 使用随机文件名避免多进程冲突
     with tempfile.NamedTemporaryFile(prefix="whisper_out_", suffix="", delete=False, dir="/tmp") as f:
         output_prefix = f.name
@@ -75,7 +104,7 @@ def _transcribe_with_cpp(audio_path: str) -> str:
         cmd = [
             str(WHISPER_CPP_CLI),
             "-m", str(WHISPER_CPP_MODEL),
-            "-f", str(audio_path),
+            "-f", input_for_whisper,
             "-l", "zh",
             "--output-txt",  # 输出 txt 文件
             "--output-file", output_prefix  # 输出文件前缀
@@ -109,6 +138,8 @@ def _transcribe_with_cpp(audio_path: str) -> str:
         try:
             Path(output_prefix).unlink(missing_ok=True)
             Path(f"{output_prefix}.txt").unlink(missing_ok=True)
+            if temp_wav:
+                temp_wav.unlink(missing_ok=True)
         except:
             pass
 
