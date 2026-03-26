@@ -114,8 +114,13 @@ def _summarize_with_openai(text: str, title: str, duration: int) -> dict:
     if not isinstance(tags, list):
         tags = [str(tags)]
     tags = [str(t).strip() for t in tags[:5] if str(t).strip()]
-    
-    insights = (result.get("insights", "") or "").strip()[:300]
+
+    # 处理 insights 可能是 list 或 string 的情况
+    insights_val = result.get("insights", "")
+    if isinstance(insights_val, list):
+        insights = "\n".join([str(x) for x in insights_val]).strip()[:500]
+    else:
+        insights = (str(insights_val) or "").strip()[:500]
     
     logger.info("LLM 总结完成: %d字摘要, %d个要点, %d个标签", 
                 len(summary), len(key_points), len(tags))

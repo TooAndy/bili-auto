@@ -8,8 +8,7 @@ from app.models.database import get_db, Video, Dynamic
 from app.modules.subtitle import get_subtitles
 from app.modules.downloader import download_audio
 from app.modules.asr import transcribe_audio
-from app.modules.correction import correct_text
-from app.modules.llm import summarize
+from app.modules.processor import process_text
 from app.modules.push import push_content
 from app.modules.dynamic import should_push_dynamic
 
@@ -68,34 +67,29 @@ def process_single_video(bvid: str):
                 try:
                     subtitles = transcribe_audio(audio_path)
                     logger.debug("[Whisper] 识别完成，长度: %d", len(subtitles))
-
-                    # 第2.5步：LLM 纠错（如果有识别文本）
-                    if subtitles:
-                        logger.debug("[纠错] 开始 LLM 文本纠错...")
-                        correction_result = correct_text(subtitles, video_title=video.title)
-                        if correction_result["success"]:
-                            subtitles = correction_result["corrected_text"]
-                            # 保存大纲到额外字段（可选）
-                            if correction_result["outline"]:
-                                logger.debug("[纠错] 获得内容大纲")
-                        logger.debug("[纠错] 完成，最终文本长度: %d", len(subtitles))
-
                 except Exception as e:
                     logger.error("[Whisper] 音频识别失败: %s", e)
                     subtitles = ""
 
-        # 第3步：LLM总结
+        # 第3步：统一 LLM 处理（纠错 + 总结）
         if subtitles:
-            logger.debug("[LLM] 开始总结...")
-            summary_data = summarize(
-                text=subtitles,
-                title=video.title,
+            logger.debug("[LLM] 开始统一处理（纠错+总结）...")
+            process_result = process_text(
+                raw_text=subtitles,
+                video_title=video.title,
                 duration=0
             )
+            summary_data = {
+                "summary": process_result.get("summary", ""),
+                "key_points": process_result.get("key_points", []),
+                "tags": process_result.get("tags", []),
+                "insights": process_result.get("insights", ""),
+                "duration_minutes": 0
+            }
             video.summary_json = json.dumps(summary_data, ensure_ascii=False)
-            logger.debug("[LLM] 总结完成")
+            logger.debug("[LLM] 处理完成")
         else:
-            logger.warning("[LLM] 无字幕和音频，跳过总结")
+            logger.warning("[LLM] 无字幕和音频，跳过处理")
             summary_data = {
                 "summary": f"无法获取字幕或音频: {video.title}",
                 "key_points": [],
