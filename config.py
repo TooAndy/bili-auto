@@ -32,3 +32,7 @@ class Config:
 
     DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///data/bili.db")
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+
+    # 调度间隔（分钟）
+    VIDEO_CHECK_INTERVAL = int(os.getenv("VIDEO_CHECK_INTERVAL", "10"))
+    DYNAMIC_CHECK_INTERVAL = int(os.getenv("DYNAMIC_CHECK_INTERVAL", "5"))

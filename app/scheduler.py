@@ -6,6 +6,7 @@ from app.utils.logger import get_logger
 from app.models.database import get_db, Subscription, Video, Dynamic
 from app.modules.bilibili import fetch_channel_videos
 from app.modules.dynamic import DynamicFetcher
+from config import Config
 
 logger = get_logger("scheduler")
 
@@ -134,15 +135,25 @@ def start_scheduler():
     """启动定时任务调度"""
     logger.info("=" * 50)
     logger.info("定时任务调度启动")
-    logger.info("视频检测频率: 每10分钟")
-    logger.info("动态检测频率: 每5分钟")
+
+    video_interval = Config.VIDEO_CHECK_INTERVAL
+    dynamic_interval = Config.DYNAMIC_CHECK_INTERVAL
+
+    # 视频检测
+    if video_interval > 0:
+        logger.info("视频检测频率: 每%d分钟", video_interval)
+        schedule.every(video_interval).minutes.do(check_new_videos)
+    else:
+        logger.info("视频检测: 已禁用 (VIDEO_CHECK_INTERVAL=%d)", video_interval)
+
+    # 动态检测
+    if dynamic_interval > 0:
+        logger.info("动态检测频率: 每%d分钟", dynamic_interval)
+        schedule.every(dynamic_interval).minutes.do(check_new_dynamics)
+    else:
+        logger.info("动态检测: 已禁用 (DYNAMIC_CHECK_INTERVAL=%d)", dynamic_interval)
+
     logger.info("=" * 50)
-    
-    # 视频检测：每10分钟一次
-    schedule.every(10).minutes.do(check_new_videos)
-    
-    # 动态检测：每5分钟一次（频率更高，因为动态更新快）
-    schedule.every(5).minutes.do(check_new_dynamics)
     
     loop_count = 0
     while True:
