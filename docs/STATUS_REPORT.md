@@ -1,8 +1,8 @@
 # 项目状态报告
 
-**项目名**: B站UP主自动化摘要系统  
-**报告时间**: 2026年3月26日  
-**阶段**: MVP 核心功能完成（阶段一）
+**项目名**: B站UP主自动化摘要系统
+**报告时间**: 2026年3月26日
+**阶段**: MVP 核心功能完成（阶段一）+ 优化增强
 
 ---
 
@@ -12,8 +12,9 @@
 - ✅ 项目目录结构完整
 - ✅ 配置管理系统（config.py + .env）
 - ✅ 日志系统（rotating file logger）
-- ✅ 数据库初始化（SQLite + SQLAlchemy ORM）  
+- ✅ 数据库初始化（SQLite + SQLAlchemy ORM）
 - ✅ 错误处理框架
+- ✅ 可配置的调度间隔（.env 中 VIDEO_CHECK_INTERVAL, DYNAMIC_CHECK_INTERVAL）
 
 ### 2. 核心模块
 
@@ -30,15 +31,18 @@
 
 - ✅ 音频下载 (`downloader.py`)
   - yt-dlp 集成
-  - WAV 格式转换
+  - **m4a 格式（128k）**，节省空间
+  - 兼容旧的 wav/mp3 文件
   - 本地文件管理
 
 - ✅ 音频转写 (`whisper_ai.py`)
   - faster-whisper 模型集成
+  - **whisper.cpp 支持**（可选，通过 .env 配置）
   - CPU 推理支持
   - 中文识别优化
+  - 自动格式转换（非 wav 格式用 ffmpeg 转换）
 
-#### 📝 B站动态处理  
+#### 📝 B站动态处理
 - ✅ 动态获取 (`dynamic.py`)
   - 动态 API 拉取
   - 多种动态类型支持 (图文、视频等)
@@ -49,17 +53,19 @@
   - 垃圾内容过滤
   - 最小长度检查
 
-#### 🤖 LLM 摘要生成
-- ✅ `summarize()` 函数
-  - OpenAI API 支持（gpt-3.5-turbo, gpt-4-turbo）
-  - 兼容 DeepSeek 等开源模型
+#### 🤖 LLM 内容处理
+- ✅ 统一处理模块 (`processor.py`)
+  - **纠错 + 总结一次 API 调用完成**
+  - OpenAI API 支持（兼容 DeepSeek、通义千问等）
   - 本地回退方案（纯文本分析）
   - 结构化 JSON 输出
-  
+  - 从 demo/prompt.txt 加载提示词
+
 - ✅ 摘要格式
   ```json
   {
     "summary": "50-100 字核心观点",
+    "details": "详细总结大纲",
     "key_points": ["观点1", "观点2", ...],
     "tags": ["标签1", "标签2", ...],
     "insights": "深层洞察",
@@ -67,20 +73,27 @@
   }
   ```
 
+- ✅ 内容持久化
+  - 识别文本保存到 `data/text/{bvid}.txt`
+  - 详细总结保存到 `data/markdown/{bvid}.md`（Markdown 格式）
+  - 如果已有文本文件，跳过下载和识别
+
 ### 3. 定时任务与队列
 
 - ✅ 调度器 (`scheduler.py`)
-  - 视频检测：每 10 分钟
-  - 动态检测：每 5 分钟
+  - 视频检测：可配置（默认 10 分钟）
+  - 动态检测：可配置（默认 5 分钟）
+  - 间隔 <= 0 时禁用检测
   - 错误处理与日志记录
   - 数据库状态追踪
 
 - ✅ 队列处理 (`queue_worker.py`)
   - 并发处理（3 worker）
-  - 视频完整流程：字幕 → Whisper → LLM → 推送
+  - 视频完整流程：字幕 → Whisper → LLM（纠错+总结） → 推送
   - 动态简化流程：过滤 → 推送
   - 失败重试机制（最多 3 次）
   - 状态机管理：pending → processing → done/failed
+  - **修复重复处理问题**：提交任务前先更新状态为 processing
 
 ### 4. 数据管理
 
@@ -103,6 +116,24 @@
   - 支持多渠道配置
   - **当前为占位符（用户要求先不实现推送）**
   - 包含未来推送方案的完整代码注释
+
+### 6. 实用脚本
+
+- ✅ `scripts/manage_subscriptions.py` - UP主订阅管理
+- ✅ `scripts/reset_processing.py` - 重置 processing 状态任务
+- ✅ `scripts/test_asr_file.py` - 测试 ASR 识别
+- ✅ `scripts/test_processor.py` - 测试统一处理模块
+- ✅ `scripts/reset_videos.py` - 重置视频状态（旧脚本）
+- ✅ `scripts/test_asr.py` - 旧 ASR 测试（保留）
+
+### 7. 测试覆盖
+
+- ✅ 完整单元测试 (`tests/`)
+  - `test_asr.py` - Whisper 识别测试
+  - `test_bilibili.py` - B站 API 测试
+  - `test_downloader.py` - 下载器测试
+  - `test_subtitle.py` - 字幕获取测试
+  - `conftest.py` - pytest fixtures
 
 ---
 
@@ -127,6 +158,7 @@
 ✅ 本地摘要生成正常
 ✅ JSON 结构化输出正确
 ✅ 错误处理与回退完整
+✅ 纠错+总结统一处理正常
 ```
 
 ---
@@ -136,7 +168,7 @@
 ### 1. 环境初始化
 ```bash
 cd /Users/aniss/Code/bili-auto
-uv run python init_setup.py
+uv run python scripts/manage_subscriptions.py
 ```
 
 ### 2. 配置环境变量
@@ -146,17 +178,25 @@ OPENAI_API_KEY=sk-xxxx
 OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 OPENAI_MODEL=deepseek-r1-distill-qwen-32b
 BILIBILI_COOKIE=xxxxx  # 可选，避免限流
+
+# 调度间隔（分钟），<=0 禁用
+VIDEO_CHECK_INTERVAL=10
+DYNAMIC_CHECK_INTERVAL=-1
+
+# Whisper 配置
+WHISPER_MODEL=small
+WHISPER_DEVICE=cpu
+
+# Whisper.cpp（可选）
+USE_WHISPER_CPP=true
+WHISPER_CPP_CLI=/path/to/whisper-cli
+WHISPER_CPP_MODEL=/path/to/ggml-small.bin
 ```
 
 ### 3. 数据库初始化
 ```bash
-uv run python << 'EOF'
-from app.models.database import get_db, Subscription
-db = get_db()
-sub = Subscription(mid="上传mid", name="UP主名字", is_active=True)
-db.add(sub)
-db.commit()
-EOF
+# 使用 manage_subscriptions.py 添加 UP 主
+uv run python scripts/manage_subscriptions.py
 ```
 
 ### 4. 启动系统
@@ -169,6 +209,11 @@ uv run python main.py
 tail -f logs/bili.log
 ```
 
+### 6. 重置 processing 状态（如需要）
+```bash
+uv run scripts/reset_processing.py
+```
+
 ---
 
 ## 📁 项目结构
@@ -177,9 +222,10 @@ tail -f logs/bili.log
 bili-auto/
 ├── main.py                    # 入口
 ├── config.py                  # 配置
-├── init_setup.py             # 初始化脚本
 ├── .env                       # 环境变量（已配置）
+├── .env.example              # 环境变量示例
 ├── pyproject.toml            # 依赖管理
+├── pytest.ini                # pytest 配置
 │
 ├── app/
 │   ├── scheduler.py          # 定时检测（视频 + 动态）
@@ -188,10 +234,13 @@ bili-auto/
 │   ├── modules/
 │   │   ├── bilibili.py       # 视频获取
 │   │   ├── dynamic.py        # 动态获取 + 过滤
-│   │   ├── downloader.py     # 音频下载
+│   │   ├── downloader.py     # 音频下载（m4a）
 │   │   ├── subtitle.py       # 字幕获取
-│   │   ├── whisper_ai.py     # 音频转写
-│   │   ├── llm.py            # 摘要生成
+│   │   ├── whisper_ai.py     # 音频转写（faster-whisper + whisper.cpp）
+│   │   ├── processor.py      # 统一处理（纠错 + 总结）
+│   │   ├── asr.py           # ❌ 已删除
+│   │   ├── correction.py     # ❌ 已删除
+│   │   ├── llm.py           # ❌ 已删除
 │   │   └── push.py           # 推送接口（占位符）
 │   │
 │   ├── models/
@@ -201,11 +250,29 @@ bili-auto/
 │       ├── logger.py         # 日志配置
 │       └── errors.py         # 错误定义
 │
+├── scripts/
+│   ├── manage_subscriptions.py  # UP主订阅管理
+│   ├── reset_processing.py      # 重置 processing 状态
+│   ├── test_asr_file.py        # 测试 ASR 识别
+│   ├── test_processor.py       # 测试统一处理模块
+│   ├── reset_videos.py         # 旧脚本（保留）
+│   └── test_asr.py            # 旧脚本（保留）
+│
+├── tests/                   # 单元测试
+│   ├── conftest.py
+│   ├── test_asr.py
+│   ├── test_bilibili.py
+│   ├── test_downloader.py
+│   └── test_subtitle.py
+│
+├── demo/                    # 示例文件
+│   └── prompt.txt          # LLM 提示词模板
+│
 ├── data/
-│   ├── subtitles/           # 字幕文件
-│   ├── audio/               # 音频文件
-│   ├── dynamic_images/      # 动态图片
-│   └── bili.db              # 数据库
+│   ├── audio/              # 音频文件（m4a）
+│   ├── text/               # 识别文本保存
+│   ├── markdown/           # 详细总结保存（Markdown）
+│   └── bili.db             # 数据库
 │
 └── logs/
     └── bili.log             # 应用日志
@@ -217,26 +284,30 @@ bili-auto/
 
 ### 视频处理流程
 ```
-1. 调度器定时检测 (每10分钟)
+1. 调度器定时检测（可配置间隔）
    ↓
 2. 获取UP主最新视频列表
    ↓
 3. 新视频添加到数据库 (status='pending')
    ↓
-4. 队列处理器拾取待处理视频
+4. 队列处理器拾取待处理视频，先标记为 processing
    ↓
-5. 获取字幕或下载音频转写
+5. 检查 data/text/{bvid}.txt 是否存在
+   ├─ 存在 → 直接读取使用
+   └─ 不存在 → 获取字幕或下载音频转写
    ↓
-6. LLM 生成结构化摘要
+6. LLM 统一处理（纠错 + 总结）
    ↓
-7. 推送到配置的渠道（当前为占位符）
+7. 保存文本到 data/text/，保存详情到 data/markdown/
    ↓
-8. 更新数据库状态 (status='done'/'failed')
+8. 推送到配置的渠道（当前为占位符）
+   ↓
+9. 更新数据库状态 (status='done'/'failed')
 ```
 
 ### 动态处理流程
 ```
-1. 调度器定时检测 (每5分钟)
+1. 调度器定时检测（可配置间隔）
    ↓
 2. 获取UP主最新动态
    ↓
@@ -244,7 +315,7 @@ bili-auto/
    ↓
 4. 新动态添加到数据库 (status='pending')
    ↓
-5. 队列处理器拾取待处理动态
+5. 队列处理器拾取待处理动态，先标记为 processing
    ↓
 6. 内容预过滤（去重、反垃圾）
    ↓
@@ -263,9 +334,22 @@ bili-auto/
 BILIBILI_COOKIE=  # 可选，避免限流
 
 # 大语言模型
-OPENAI_API_KEY=   # 支持 OpenAI、Azure、DeepSeek 等
+OPENAI_API_KEY=   # 支持 OpenAI、Azure、DeepSeek、通义千问等
 OPENAI_BASE_URL=  # 自定义 API 端点
 OPENAI_MODEL=     # 默认 gpt-3.5-turbo
+
+# 调度间隔（分钟），<=0 禁用
+VIDEO_CHECK_INTERVAL=10
+DYNAMIC_CHECK_INTERVAL=-1
+
+# Whisper 语音识别
+WHISPER_MODEL=small|base|tiny|medium|large
+WHISPER_DEVICE=cpu|cuda
+
+# Whisper.cpp（可选，更快）
+USE_WHISPER_CPP=true
+WHISPER_CPP_CLI=/path/to/whisper-cli
+WHISPER_CPP_MODEL=/path/to/ggml-small.bin
 
 # 推送渠道（当前不启用）
 FEISHU_WEBHOOK=   # 飞书机器人 webhook
@@ -298,7 +382,7 @@ LOG_LEVEL=INFO
 - [ ] 关键词过滤引擎
 - [ ] 内容分类器
 - [ ] 向量搜索（知识库）
-- [ ] Web 管理后台 （可选）
+- [ ] Web 管理后台（可选）
 - [ ] 推送集成（飞书、Telegram、微信）
 - [ ] 成本优化（本地开源模型）
 
@@ -310,6 +394,7 @@ LOG_LEVEL=INFO
 2. **B站 API 限流**: 频繁请求会被限速，建议配置 Cookie 增加频率
 3. **字幕丢失**: 部分老视频或无字幕视频需依赖 Whisper
 4. **推送功能**: 当前为占位符，等待后续阶段实现
+5. **音频格式**: 已改用 m4a 节省空间，whisper.cpp 需要 ffmpeg 转换
 
 ---
 
@@ -317,10 +402,10 @@ LOG_LEVEL=INFO
 
 - 系统运行遇到问题，查阅 `logs/bili.log`
 - API 限流，请更新 `BILIBILI_COOKIE`
-- 摘要质量差，可升级到 `gpt-4-turbo` 或本地更大模型
+- 摘要质量差，可升级到更好的模型或调整 prompt
 - 推送功能需求，见 `app/modules/push.py` 注释
+- 任务卡在 processing 状态，运行 `scripts/reset_processing.py`
 
 ---
 
 **项目已准备好进入试运行阶段！** 🎉
-
