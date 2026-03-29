@@ -9,14 +9,27 @@ logger = get_logger("dynamic")
 
 class DynamicFetcher:
     def __init__(self):
-        self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-        }
+        # 使用 Session 复用连接
+        self.session = requests.Session()
+        self.session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Referer": "https://www.bilibili.com",
+        })
         if Config.BILIBILI_COOKIE:
-            self.headers["Cookie"] = Config.BILIBILI_COOKIE
+            self.session.headers.update({"Cookie": Config.BILIBILI_COOKIE})
 
         self.image_dir = Path("data/dynamic_images")
         self.image_dir.mkdir(parents=True, exist_ok=True)
+
+    def close(self):
+        """关闭 Session"""
+        self.session.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
     def fetch_dynamic(self, mid: str, offset: int = 0) -> list:
         url = "https://api.bilibili.com/x/polymer/v1/feed/space"
@@ -26,7 +39,7 @@ class DynamicFetcher:
             "features": "forward"
         }
 
-        resp = requests.get(url, params=params, headers=self.headers, timeout=20)
+        resp = self.session.get(url, params=params, timeout=20)
         resp.raise_for_status()
         data = resp.json()
 
@@ -75,7 +88,7 @@ class DynamicFetcher:
         images = []
         for idx, url in enumerate(dynamic.get("image_urls", [])):
             try:
-                resp = requests.get(url, timeout=20)
+                resp = self.session.get(url, timeout=20)
                 resp.raise_for_status()
                 filename = f"{dynamic['dynamic_id']}_{idx}.jpg"
                 path = self.image_dir / filename

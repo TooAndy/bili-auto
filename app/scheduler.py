@@ -69,64 +69,65 @@ def check_new_videos():
 def check_new_dynamics():
     """定时检测所有UP主的新动态"""
     logger.info("[检测] 开始检查新动态...")
-    
+
     try:
         db = get_db()
-        fetcher = DynamicFetcher()
-        subscriptions = db.query(Subscription).filter_by(is_active=True).all()
-        
-        if not subscriptions:
-            logger.warning("[检测] 未配置任何UP主订阅")
-            return
-        
-        new_count = 0
-        error_count = 0
-        
-        for sub in subscriptions:
-            try:
-                dynamics = fetcher.fetch_dynamic(sub.mid)
-                logger.debug("[检测] 用户 %s(%s) 获得 %d 个动态", 
-                            sub.name, sub.mid, len(dynamics))
-                
-                for dyn in dynamics:
-                    # 检查是否已存在
-                    existing = db.query(Dynamic).filter_by(
-                        dynamic_id=dyn["dynamic_id"]
-                    ).first()
-                    if existing:
-                        logger.debug("[检测] 动态已存在: %s", dyn["dynamic_id"])
-                        continue
-                    
-                    # 下载图片
-                    dyn = fetcher.download_images(dyn)
-                    
-                    # 新动态，添加到数据库
-                    new_dynamic = Dynamic(
-                        dynamic_id=dyn["dynamic_id"],
-                        mid=sub.mid,
-                        type=dyn.get("type", 0),
-                        text=dyn.get("text", ""),
-                        image_count=len(dyn.get("images", [])),
-                        images_path=json.dumps(dyn.get("images", []), ensure_ascii=False),
-                        image_urls=json.dumps(dyn.get("image_urls", []), ensure_ascii=False),
-                        pub_time=dyn.get("pub_time"),
-                        status="pending"
-                    )
-                    db.add(new_dynamic)
-                    new_count += 1
-                    text_preview = (dyn.get("text", "") or "")[:60]
-                    logger.info("[新动态] %s | %s...", sub.name, text_preview)
-                
-                sub.last_check_time = datetime.utcnow()
-                
-            except Exception as e:
-                error_count += 1
-                logger.error("[检测] 检查用户 %s(%s) 动态失败: %s", 
-                           sub.mid, sub.name, e, exc_info=True)
-        
-        db.commit()
-        logger.info("[检测完成] 发现 %d 个新动态，%d 个错误", new_count, error_count)
-        
+        # 使用上下文管理器确保 Session 正确关闭
+        with DynamicFetcher() as fetcher:
+            subscriptions = db.query(Subscription).filter_by(is_active=True).all()
+
+            if not subscriptions:
+                logger.warning("[检测] 未配置任何UP主订阅")
+                return
+
+            new_count = 0
+            error_count = 0
+
+            for sub in subscriptions:
+                try:
+                    dynamics = fetcher.fetch_dynamic(sub.mid)
+                    logger.debug("[检测] 用户 %s(%s) 获得 %d 个动态",
+                                sub.name, sub.mid, len(dynamics))
+
+                    for dyn in dynamics:
+                        # 检查是否已存在
+                        existing = db.query(Dynamic).filter_by(
+                            dynamic_id=dyn["dynamic_id"]
+                        ).first()
+                        if existing:
+                            logger.debug("[检测] 动态已存在: %s", dyn["dynamic_id"])
+                            continue
+
+                        # 下载图片
+                        dyn = fetcher.download_images(dyn)
+
+                        # 新动态，添加到数据库
+                        new_dynamic = Dynamic(
+                            dynamic_id=dyn["dynamic_id"],
+                            mid=sub.mid,
+                            type=dyn.get("type", 0),
+                            text=dyn.get("text", ""),
+                            image_count=len(dyn.get("images", [])),
+                            images_path=json.dumps(dyn.get("images", []), ensure_ascii=False),
+                            image_urls=json.dumps(dyn.get("image_urls", []), ensure_ascii=False),
+                            pub_time=dyn.get("pub_time"),
+                            status="pending"
+                        )
+                        db.add(new_dynamic)
+                        new_count += 1
+                        text_preview = (dyn.get("text", "") or "")[:60]
+                        logger.info("[新动态] %s | %s...", sub.name, text_preview)
+
+                    sub.last_check_time = datetime.utcnow()
+
+                except Exception as e:
+                    error_count += 1
+                    logger.error("[检测] 检查用户 %s(%s) 动态失败: %s",
+                               sub.mid, sub.name, e, exc_info=True)
+
+            db.commit()
+            logger.info("[检测完成] 发现 %d 个新动态，%d 个错误", new_count, error_count)
+
     except Exception as e:
         logger.error("[检测] 异常: %s", e, exc_info=True)
 
