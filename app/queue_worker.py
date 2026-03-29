@@ -6,13 +6,14 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from functools import wraps
 from app.utils.logger import get_logger
-from app.models.database import get_db, Video, Dynamic
+from app.models.database import get_db, Video, Dynamic, Subscription
 from app.modules.subtitle import get_subtitles
 from app.modules.downloader import download_audio, _generate_filename
 from app.modules.whisper_ai import transcribe_audio
 from app.modules.processor import process_text
 from app.modules.push import push_content
 from app.modules.dynamic import should_push_dynamic
+from app.utils.paths import PathManager, get_path_manager
 
 logger = get_logger("queue_worker")
 
@@ -34,7 +35,7 @@ def retry_on_db_lock(max_retries=3, delay=0.5):
         return wrapper
     return decorator
 
-# 数据保存路径
+# 数据保存路径（旧路径，用于向后兼容）
 DATA_ROOT = Path(__file__).resolve().parent.parent / "data"
 TEXT_DIR = DATA_ROOT / "text"
 MARKDOWN_DIR = DATA_ROOT / "markdown"
@@ -44,25 +45,52 @@ TEXT_DIR.mkdir(parents=True, exist_ok=True)
 MARKDOWN_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def get_uploader_info(db, mid: str) -> tuple:
+    """获取 UP 主信息"""
+    sub = db.query(Subscription).filter_by(mid=mid).first()
+    if sub:
+        return sub.name, sub.mid
+    return f"UP主_{mid}", mid
+
+
 def process_single_video(bvid: str):
-    """处理单个视频的完整流程"""
+    """处理单个视频的完整流程（使用新路径结构）"""
     db = get_db()
+    pm = get_path_manager()
+    project_root = Path(__file__).resolve().parent.parent
+
     try:
         video = db.query(Video).filter_by(bvid=bvid).first()
         if not video:
             logger.warning("视频不存在: %s", bvid)
             return
 
-        logger.info("开始处理视频 %s | 标题: %s", bvid, video.title)
+        # 获取 UP 主信息
+        uploader_name, uploader_mid = get_uploader_info(db, video.mid)
+
+        logger.info("开始处理视频 %s | UP主: %s | 标题: %s", bvid, uploader_name, video.title)
         video.status = "processing"
         db.commit()
 
-        # 第0步：检查是否已有识别后的文本
-        text_file = TEXT_DIR / f"{bvid}.txt"
-        if text_file.exists():
-            logger.debug("[文本] 发现已有识别文本，直接使用: %s", text_file)
-            subtitles = text_file.read_text("utf-8")
+        # 获取新路径结构
+        paths = pm.get_video_paths(uploader_name, bvid, video.title, video.pub_time, uploader_mid)
+
+        # 第0步：检查是否已有识别后的文本（优先检查新路径）
+        subtitles = ""
+        if paths["transcript"].exists():
+            logger.debug("[文本] 发现已有识别文本（新路径）: %s", paths["transcript"])
+            subtitles = paths["transcript"].read_text("utf-8")
         else:
+            # 检查旧路径
+            old_text_file = TEXT_DIR / f"{bvid}.txt"
+            if old_text_file.exists():
+                logger.debug("[文本] 发现已有识别文本（旧路径）: %s", old_text_file)
+                subtitles = old_text_file.read_text("utf-8")
+                # 复制到新路径
+                paths["transcript"].write_text(subtitles, "utf-8")
+                logger.debug("[文本] 已迁移到新路径: %s", paths["transcript"])
+
+        if not subtitles:
             # 第1步：获取字幕
             logger.debug("[字幕] 尝试从B站获取...")
             subtitles = get_subtitles(bvid)
@@ -71,47 +99,55 @@ def process_single_video(bvid: str):
             if subtitles:
                 logger.debug("[字幕] 获取成功，长度: %d", len(subtitles))
             else:
-                # 第2步：检查是否已下载过视频或音频
+                # 第2步：检查是否已下载过视频或音频（优先检查新路径）
                 media_path = None
-                media_type = None  # 'video' or 'audio'
+                media_type = None
 
-                # 优先检查视频
-                if video.has_video and video.video_path:
-                    if os.path.exists(video.video_path):
-                        logger.debug("[视频] 复用已有视频文件: %s", video.video_path)
-                        media_path = video.video_path
-                        media_type = "video"
-                    else:
-                        logger.warning("[视频] 视频文件不存在，重新下载: %s", video.video_path)
-                        video.has_video = False
-                        video.video_path = None
+                # 先检查新路径下的视频
+                if video.has_video and paths["video"].exists():
+                    logger.debug("[视频] 复用已有视频文件（新路径）: %s", paths["video"])
+                    media_path = str(paths["video"])
+                    media_type = "video"
+                # 再检查新路径下的音频
+                elif video.has_audio and paths["audio"].exists():
+                    logger.debug("[音频] 复用已有音频文件（新路径）: %s", paths["audio"])
+                    media_path = str(paths["audio"])
+                    media_type = "audio"
+                else:
+                    # 回退到旧路径检查
+                    if video.has_video and video.video_path:
+                        check_path = video.video_path
+                        if not os.path.isabs(check_path):
+                            check_path = str(project_root / check_path)
+                        if os.path.exists(check_path):
+                            logger.debug("[视频] 复用已有视频文件（旧路径）: %s", check_path)
+                            media_path = check_path
+                            media_type = "video"
+                            # 复制到新路径
+                            import shutil
+                            shutil.copy2(check_path, paths["video"])
+                            video.video_path = str(paths["video"].relative_to(project_root))
+                            logger.debug("[视频] 已迁移到新路径: %s", paths["video"])
 
-                # 其次检查音频
-                if not media_path and video.has_audio and video.audio_path:
-                    if os.path.exists(video.audio_path):
-                        logger.debug("[音频] 复用已有音频文件: %s", video.audio_path)
-                        media_path = video.audio_path
-                        media_type = "audio"
-                    else:
-                        logger.warning("[音频] 音频文件不存在，重新下载: %s", video.audio_path)
-                        video.has_audio = False
-                        video.audio_path = None
+                    if not media_path and video.has_audio and video.audio_path:
+                        check_path = video.audio_path
+                        if not os.path.isabs(check_path):
+                            check_path = str(project_root / check_path)
+                        if os.path.exists(check_path):
+                            logger.debug("[音频] 复用已有音频文件（旧路径）: %s", check_path)
+                            media_path = check_path
+                            media_type = "audio"
+                            # 复制到新路径
+                            import shutil
+                            shutil.copy2(check_path, paths["audio"])
+                            video.audio_path = str(paths["audio"].relative_to(project_root))
+                            logger.debug("[音频] 已迁移到新路径: %s", paths["audio"])
 
-                # 如果都没有，优先下载视频（用于批量下载场景）
+                # 如果都没有，无法继续
                 if not media_path:
-                    # 检查 data/video 目录是否已有视频文件（可能是外部下载的）
-                    video_file = DATA_ROOT / "video" / f"{bvid}.mp4"
-                    if video_file.exists():
-                        logger.debug("[视频] 发现已有视频文件: %s", video_file)
-                        media_path = str(video_file)
-                        media_type = "video"
-                        video.has_video = True
-                        video.video_path = str(video_file)
-                    else:
-                        # 没有找到任何媒体文件，无法继续
-                        logger.warning("[媒体] 未找到视频或音频文件，跳过处理")
-                        subtitles = ""
-                        media_path = None
+                    logger.warning("[媒体] 未找到视频或音频文件，跳过处理")
+                    subtitles = ""
+                    media_path = None
 
                 # 用ASR转写
                 if media_path:
@@ -124,6 +160,7 @@ def process_single_video(bvid: str):
                         subtitles = ""
 
         # 第3步：统一 LLM 处理（纠错 + 总结）
+        summary_data = None
         if subtitles:
             logger.debug("[LLM] 开始统一处理（纠错+总结）...")
             process_result = process_text(
@@ -142,21 +179,16 @@ def process_single_video(bvid: str):
             video.summary_json = json.dumps(summary_data, ensure_ascii=False)
             logger.debug("[LLM] 处理完成")
 
-            # 保存文本和 details 到文件（如果还没保存过）
-            if subtitles:
-                # 生成文件名
-                text_filename = _generate_filename(bvid, video.title, video.pub_time, "txt")
-                text_file = TEXT_DIR / text_filename
-                if not text_file.exists():
-                    text_file.write_text(subtitles, "utf-8")
-                    logger.debug("[保存] 文本已保存: %s", text_file)
+            # 保存文本到新路径
+            if subtitles and not paths["transcript"].exists():
+                paths["transcript"].write_text(subtitles, "utf-8")
+                logger.debug("[保存] 文本已保存: %s", paths["transcript"])
 
-            if summary_data.get("details"):
-                # 生成文件名
-                md_filename = _generate_filename(bvid, video.title, video.pub_time, "md")
-                md_file = MARKDOWN_DIR / md_filename
+            # 保存 summary 到新路径
+            if summary_data.get("details") and not paths["summary"].exists():
                 md_content = f"# {video.title}\n\n"
                 md_content += f"**URL**: https://www.bilibili.com/video/{bvid}\n\n"
+                md_content += f"**UP主**: {uploader_name}\n\n"
                 if video.pub_time:
                     pub_time_str = datetime.fromtimestamp(video.pub_time).strftime("%Y-%m-%d %H:%M:%S")
                     md_content += f"**发布时间**: {pub_time_str}\n\n"
@@ -164,8 +196,8 @@ def process_single_video(bvid: str):
                     md_content += "**发布时间**: 未知\n\n"
                 md_content += "---\n\n"
                 md_content += summary_data["details"]
-                md_file.write_text(md_content, "utf-8")
-                logger.debug("[保存] 详情已保存: %s", md_file)
+                paths["summary"].write_text(md_content, "utf-8")
+                logger.debug("[保存] 详情已保存: %s", paths["summary"])
         else:
             logger.warning("[LLM] 无字幕和音频，跳过处理")
             summary_data = {

@@ -1,8 +1,10 @@
 import requests
 import json
+from datetime import datetime
 from pathlib import Path
 from app.utils.logger import get_logger
 from config import Config
+from app.modules.wbi import WBISigner
 
 logger = get_logger("dynamic")
 
@@ -12,14 +14,18 @@ class DynamicFetcher:
         # 使用 Session 复用连接
         self.session = requests.Session()
         self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Referer": "https://www.bilibili.com",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36 Edg/146.0.0.0",
+            "Referer": "https://space.bilibili.com",
+            "Origin": "https://space.bilibili.com",
         })
         if Config.BILIBILI_COOKIE:
             self.session.headers.update({"Cookie": Config.BILIBILI_COOKIE})
 
         self.image_dir = Path("data/dynamic_images")
         self.image_dir.mkdir(parents=True, exist_ok=True)
+
+        # WBI 签名器
+        self.wbi_signer = WBISigner()
 
     def close(self):
         """关闭 Session"""
@@ -31,13 +37,31 @@ class DynamicFetcher:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def fetch_dynamic(self, mid: str, offset: int = 0) -> list:
-        url = "https://api.bilibili.com/x/polymer/v1/feed/space"
+    def fetch_dynamic(self, mid: str, offset: str = "") -> list:
+        """
+        获取 UP主动态
+
+        Args:
+            mid: UP主 ID
+            offset: 分页偏移量（字符串格式）
+
+        Returns:
+            动态列表
+        """
+        url = "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space"
+
+        # 基础参数
         params = {
             "host_mid": mid,
             "offset": offset,
-            "features": "forward"
+            "timezone_offset": "-480",
+            "platform": "web",
+            "features": "itemOpusStyle,listOnlyfans,opusBigCover,onlyfansVote,forwardListHidden,decorationCard,commentsNewVersion,onlyfansAssetsV2,ugcDelete,onlyfansQaCard,avatarAutoTheme,sunflowerStyle,cardsEnhance,eva3CardOpus,eva3CardVideo,eva3CardComment,eva3CardUser",
+            "web_location": "333.1387",
         }
+
+        # WBI 签名
+        params = self.wbi_signer.sign(params)
 
         resp = self.session.get(url, params=params, timeout=20)
         resp.raise_for_status()
@@ -58,29 +82,86 @@ class DynamicFetcher:
         return dynamics
 
     def _parse_dynamic(self, item: dict) -> dict:
-        dynamic_id = item.get("id_str")
-        dynamic_type = item.get("type")
+        """
+        解析动态数据
 
-        if dynamic_type not in [256, 2, 1, 4]:
+        新 API 返回的动态类型：
+        - DYNAMIC_TYPE_AV: 视频动态
+        - DYNAMIC_TYPE_WORD: 纯文字动态
+        - DYNAMIC_TYPE_DRAW: 图片动态
+        - DYNAMIC_TYPE_OPUS: 图文动态（大图）
+        """
+        dynamic_id = item.get("id_str")
+        dynamic_type_str = item.get("type", "")
+
+        # 跳过转发动态
+        if item.get("orig"):
             return None
 
         modules = item.get("modules", {})
-        module_content = modules.get("module_content", {})
-        text = module_content.get("content", "").strip()
+        module_author = modules.get("module_author", {})
+        module_dynamic = modules.get("module_dynamic", {})
 
+        # 获取文本内容
+        text = ""
         image_urls = []
-        for img in module_content.get("image_urls", []):
-            if isinstance(img, dict) and img.get("src"):
-                image_urls.append(img.get("src"))
 
-        pub_time = modules.get("module_author", {}).get("pub_time", "")
+        # 根据动态类型解析
+        if dynamic_type_str == "DYNAMIC_TYPE_AV":
+            # 视频动态
+            major = module_dynamic.get("major") or {}
+            archive = major.get("archive") or {}
+            text = archive.get("title", "")
+            desc = archive.get("desc", "")
+            if desc:
+                text = f"{text}\n{desc}" if text else desc
+
+        elif dynamic_type_str in ["DYNAMIC_TYPE_WORD", "DYNAMIC_TYPE_DRAW", "DYNAMIC_TYPE_OPUS"]:
+            # 文字/图片动态
+            major = module_dynamic.get("major") or {}
+            if dynamic_type_str == "DYNAMIC_TYPE_OPUS":
+                # 图文动态（大图）
+                opus = major.get("opus") or {}
+                text = opus.get("summary", "") or opus.get("title", "")
+                # 获取图片
+                for img in opus.get("images") or []:
+                    if isinstance(img, dict):
+                        image_urls.append(img.get("url", ""))
+            else:
+                # 普通文字/图片动态
+                common = major.get("common") or {}
+                text = common.get("desc", "")
+                # 获取图片
+                for img in common.get("images") or []:
+                    if isinstance(img, dict):
+                        src = img.get("src", "")
+                        if src:
+                            image_urls.append(src)
+
+        else:
+            # 其他类型不处理
+            return None
+
+        text = text.strip()
+        if not text:
+            return None
+
+        # 获取发布时间
+        pub_ts = module_author.get("pub_ts", 0)
+        pub_time = module_author.get("pub_time", "")
+
+        # 将时间戳转换为 datetime 对象
+        pub_datetime = None
+        if pub_ts and isinstance(pub_ts, int) and pub_ts > 0:
+            pub_datetime = datetime.fromtimestamp(pub_ts)
 
         return {
             "dynamic_id": dynamic_id,
-            "type": dynamic_type,
+            "type": dynamic_type_str,
             "text": text,
             "image_urls": image_urls,
-            "pub_time": pub_time,
+            "pub_time": pub_datetime,
+            "pub_ts": pub_ts,
             "images": []
         }
 

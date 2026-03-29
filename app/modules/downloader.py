@@ -5,6 +5,8 @@ import re
 from datetime import datetime
 from pathlib import Path
 from app.utils.logger import get_logger
+from app.utils.paths import PathManager, get_path_manager
+from app.models.database import get_db, Subscription
 from config import Config
 
 logger = get_logger("downloader")
@@ -288,3 +290,176 @@ def extract_audio_from_video(video_path: str) -> str:
 
     logger.info("音频提取完成: %s", temp_audio)
     return str(temp_audio)
+
+
+def get_uploader_name_by_mid(mid: str) -> str:
+    """
+    通过 MID 获取 UP 主名称
+
+    Args:
+        mid: UP 主 MID
+
+    Returns:
+        UP 主名称，如果找不到则返回 "UP主_{mid}"
+    """
+    try:
+        db = get_db()
+        sub = db.query(Subscription).filter_by(mid=mid).first()
+        if sub and sub.name:
+            return sub.name
+    except:
+        pass
+    finally:
+        try:
+            db.close()
+        except:
+            pass
+    return f"UP主_{mid}"
+
+
+def download_video_new(
+    bvid: str,
+    mid: str,
+    title: str,
+    pub_time: int = None,
+    quality: str = DEFAULT_QUALITY,
+    uploader_name: str = None
+) -> str:
+    """
+    下载 B站视频（新路径结构）
+
+    Args:
+        bvid: 视频 ID
+        mid: UP 主 MID
+        title: 视频标题
+        pub_time: 发布时间戳
+        quality: 清晰度
+        uploader_name: UP 主名称（可选，会自动获取）
+
+    Returns:
+        视频文件路径
+    """
+    if not uploader_name:
+        uploader_name = get_uploader_name_by_mid(mid)
+
+    pm = get_path_manager()
+    paths = pm.get_video_paths(uploader_name, bvid, title, pub_time, mid)
+    output_path = paths["video"]
+
+    # 检查文件是否已存在
+    if output_path.exists():
+        logger.info("视频文件已存在，跳过下载: %s", output_path)
+        return str(output_path)
+
+    # 检查 Cookie 配置
+    if not Config.BILIBILI_COOKIE:
+        logger.warning("未配置 BILIBILI_COOKIE，会员视频只能下载试看片段")
+
+    # 获取格式选择器
+    format_selector = QUALITY_FORMATS.get(quality.lower(), QUALITY_FORMATS[DEFAULT_QUALITY])
+    logger.debug("使用清晰度: %s (格式: %s)", quality, format_selector)
+
+    output_template = str(output_path)
+    cmd = [
+        "yt-dlp",
+        "-f", format_selector,
+        "--merge-output-format", "mp4",
+        "-o", output_template,
+        *_get_ytdlp_cookies_args(),
+        f"https://www.bilibili.com/video/{bvid}"
+    ]
+
+    logger.info("开始下载视频: %s (清晰度: %s)", bvid, quality)
+
+    # 清理临时 Cookie 文件
+    cookie_file = None
+    if len(cmd) > 9 and cmd[9] == "--cookies":
+        cookie_file = Path(cmd[10])
+
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+
+        if proc.returncode != 0:
+            logger.error("yt-dlp 下载视频失败: %s", proc.stderr)
+            raise RuntimeError(f"下载视频失败: {proc.stderr}")
+
+        logger.info("视频下载完成: %s", output_template)
+        return output_template
+    finally:
+        # 清理临时 Cookie 文件
+        if cookie_file and cookie_file.exists():
+            try:
+                cookie_file.unlink()
+            except:
+                pass
+
+
+def download_audio_new(
+    bvid: str,
+    mid: str,
+    title: str,
+    pub_time: int = None,
+    uploader_name: str = None
+) -> str:
+    """
+    下载 B站音频（新路径结构）
+
+    Args:
+        bvid: 视频 ID
+        mid: UP 主 MID
+        title: 视频标题
+        pub_time: 发布时间戳
+        uploader_name: UP 主名称（可选，会自动获取）
+
+    Returns:
+        音频文件路径
+    """
+    if not uploader_name:
+        uploader_name = get_uploader_name_by_mid(mid)
+
+    pm = get_path_manager()
+    paths = pm.get_video_paths(uploader_name, bvid, title, pub_time, mid)
+    output_path = paths["audio"]
+
+    # 检查文件是否已存在
+    if output_path.exists():
+        logger.info("音频文件已存在，跳过下载: %s", output_path)
+        return str(output_path)
+
+    output_template = str(output_path)
+    cmd = [
+        "yt-dlp",
+        "-x",
+        "--audio-format",
+        "m4a",
+        "--audio-quality",
+        "128k",
+        "-o",
+        output_template,
+        *_get_ytdlp_cookies_args(),
+        f"https://www.bilibili.com/video/{bvid}"
+    ]
+
+    logger.info("开始下载音频: %s", bvid)
+
+    # 清理临时 Cookie 文件
+    cookie_file = None
+    if len(cmd) > 8 and cmd[8] == "--cookies":
+        cookie_file = Path(cmd[9])
+
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+
+        if proc.returncode != 0:
+            logger.error("yt-dlp 下载失败: %s", proc.stderr)
+            raise RuntimeError(f"下载失败: {proc.stderr}")
+
+        logger.info("下载完成: %s", output_template)
+        return output_template
+    finally:
+        # 清理临时 Cookie 文件
+        if cookie_file and cookie_file.exists():
+            try:
+                cookie_file.unlink()
+            except:
+                pass
