@@ -75,7 +75,7 @@ def fetch_all_videos(mid: str, start_date: Optional[int] = None, end_date: Optio
     """
     获取 UP 主所有视频（支持分页和日期范围过滤）
 
-    使用 WBI 签名接口，减少限流风险
+    优先使用 WBI 签名接口，失败时降级到旧接口
 
     Args:
         mid: UP 主 ID
@@ -89,40 +89,71 @@ def fetch_all_videos(mid: str, start_date: Optional[int] = None, end_date: Optio
     _check_cookie()
 
     session = _get_session()
-    url = "https://api.bilibili.com/x/space/wbi/arc/search"
-
     all_videos = []
     page = 1
-    page_size = 25  # WBI 接口建议使用 25
+    use_wbi = True  # 是否使用 WBI 接口
 
-    logger.info("开始获取 UP 主 %s 的所有视频 (使用 WBI 签名)...", mid)
+    logger.info("开始获取 UP 主 %s 的所有视频...", mid)
 
     try:
         while True:
-            # 构建参数（参考 curl 命令）
-            params = {
-                "mid": str(mid),
-                "ps": str(page_size),
-                "pn": str(page),
-                "tid": "0",
-                "special_type": "",
-                "order": "pubdate",
-                "index": "0",
-                "keyword": "",
-                "order_avoided": "true",
-            }
+            # 尝试 WBI 接口
+            if use_wbi:
+                url = "https://api.bilibili.com/x/space/wbi/arc/search"
+                page_size = 25
+                params = {
+                    "mid": str(mid),
+                    "ps": str(page_size),
+                    "pn": str(page),
+                    "tid": "0",
+                    "special_type": "",
+                    "order": "pubdate",
+                    "index": "0",
+                    "keyword": "",
+                    "order_avoided": "true",
+                }
+                try:
+                    signed_params = sign_params(params)
+                    logger.debug("WBI 签名参数: %s", {k: v for k, v in signed_params.items() if k not in ['w_rid', 'wts']})
+                    resp = session.get(url, params=signed_params, timeout=15)
+                    resp.raise_for_status()
+                    data = resp.json()
 
-            # WBI 签名
-            signed_params = sign_params(params)
-            logger.debug("WBI 签名参数: %s", {k: v for k, v in signed_params.items() if k not in ['w_rid', 'wts']})
+                    # 检查是否是权限问题
+                    if data.get("code") != 0:
+                        error_msg = data.get("message", "")
+                        if "权限" in error_msg or "访问" in error_msg:
+                            logger.warning("WBI 接口权限不足: %s，降级到旧接口", error_msg)
+                            use_wbi = False
+                            page = 1  # 重置页码
+                            all_videos = []  # 清空已获取数据
+                            continue
+                        else:
+                            logger.error("bilibili API error (page %d): %s", page, error_msg)
+                            break
+                except Exception as e:
+                    logger.warning("WBI 接口请求失败: %s，降级到旧接口", e)
+                    use_wbi = False
+                    page = 1
+                    all_videos = []
+                    continue
 
-            resp = session.get(url, params=signed_params, timeout=15)
-            resp.raise_for_status()
-            data = resp.json()
+            # 使用旧接口（降级方案）
+            if not use_wbi:
+                url = "https://api.bilibili.com/x/space/arc/search"
+                page_size = 30
+                params = {
+                    "mid": mid,
+                    "ps": page_size,
+                    "pn": page
+                }
+                resp = session.get(url, params=params, timeout=15)
+                resp.raise_for_status()
+                data = resp.json()
 
-            if data.get("code") != 0:
-                logger.error("bilibili API error (page %d): %s", page, data.get("message"))
-                break
+                if data.get("code") != 0:
+                    logger.error("bilibili API error (page %d): %s", page, data.get("message"))
+                    break
 
             items = data.get("data", {}).get("list", {}).get("vlist", [])
 
@@ -172,7 +203,8 @@ def fetch_all_videos(mid: str, start_date: Optional[int] = None, end_date: Optio
 
             # 每页之间延迟，避免限流
             if page > 1:
-                time.sleep(0.5)
+                delay = 1.0 if use_wbi else 2.0  # 旧接口延迟更长
+                time.sleep(delay)
 
         return all_videos
     finally:
