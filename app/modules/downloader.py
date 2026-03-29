@@ -3,6 +3,7 @@ import os
 import tempfile
 from pathlib import Path
 from app.utils.logger import get_logger
+from config import Config
 
 logger = get_logger("downloader")
 
@@ -17,6 +18,25 @@ QUALITY_FORMATS = {
 }
 
 DEFAULT_QUALITY = "high"
+
+
+def _get_ytdlp_cookies_args() -> list:
+    """
+    获取 yt-dlp 的 Cookie 参数
+
+    Returns:
+        yt-dlp 命令行参数列表
+    """
+    if not Config.BILIBILI_COOKIE:
+        return []
+
+    # 将 Cookie 字符串转换为临时文件
+    # yt-dlp 支持 --cookies 参数，但需要 Netscape cookie 格式
+    # 简化方案：直接使用 --add-header
+    return [
+        "--add-header",
+        f"Cookie:{Config.BILIBILI_COOKIE}"
+    ]
 
 
 def download_audio(bvid: str, output_dir: str = "data/audio") -> str:
@@ -46,6 +66,7 @@ def download_audio(bvid: str, output_dir: str = "data/audio") -> str:
         "128k",
         "-o",
         output_template,
+        *_get_ytdlp_cookies_args(),
         f"https://www.bilibili.com/video/{bvid}"
     ]
 
@@ -64,6 +85,8 @@ def download_video(bvid: str, quality: str = DEFAULT_QUALITY, output_dir: str = 
     """
     下载 B站视频
 
+    会员视频需要配置 BILIBILI_COOKIE 才能下载完整版
+
     Args:
         bvid: 视频 ID
         quality: 清晰度，可选: 4k, high, 1080p, 720p, 480p, 360p，默认 high
@@ -81,6 +104,10 @@ def download_video(bvid: str, quality: str = DEFAULT_QUALITY, output_dir: str = 
         logger.info("视频文件已存在，跳过下载: %s", output_path)
         return str(output_path)
 
+    # 检查 Cookie 配置
+    if not Config.BILIBILI_COOKIE:
+        logger.warning("未配置 BILIBILI_COOKIE，会员视频只能下载试看片段")
+
     # 获取格式选择器
     format_selector = QUALITY_FORMATS.get(quality.lower(), QUALITY_FORMATS[DEFAULT_QUALITY])
     logger.debug("使用清晰度: %s (格式: %s)", quality, format_selector)
@@ -91,6 +118,7 @@ def download_video(bvid: str, quality: str = DEFAULT_QUALITY, output_dir: str = 
         "-f", format_selector,
         "--merge-output-format", "mp4",
         "-o", output_template,
+        *_get_ytdlp_cookies_args(),
         f"https://www.bilibili.com/video/{bvid}"
     ]
 
