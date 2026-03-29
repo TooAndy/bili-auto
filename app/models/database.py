@@ -102,8 +102,29 @@ class Log(Base):
 engine = create_engine(
     Config.DATABASE_URL,
     echo=False,
-    connect_args={"check_same_thread": False} if "sqlite" in Config.DATABASE_URL else {}
+    pool_size=5,
+    max_overflow=10,
+    pool_timeout=30,
+    connect_args={
+        "check_same_thread": False,
+        "timeout": 30,  # 30秒超时
+    } if "sqlite" in Config.DATABASE_URL else {}
 )
+
+# 启用 WAL 模式以支持并发读写
+if "sqlite" in Config.DATABASE_URL:
+    from sqlalchemy import event
+    @event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_conn, connection_record):
+        cursor = dbapi_conn.cursor()
+        # WAL 模式允许读写并发
+        cursor.execute("PRAGMA journal_mode=WAL")
+        # 减少锁竞争
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        # 设置忙时重试超时（毫秒）
+        cursor.execute("PRAGMA busy_timeout=30000")
+        cursor.close()
+
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
 

@@ -9,8 +9,10 @@
 """
 import sys
 import argparse
+import time
 from pathlib import Path
 from datetime import datetime
+from functools import wraps
 
 # 添加项目根目录到 Python 路径
 project_root = Path(__file__).resolve().parent.parent
@@ -22,6 +24,29 @@ from app.models.database import get_db, Video
 from app.utils.logger import get_logger
 
 logger = get_logger("download_video")
+
+
+def retry_on_db_lock(max_retries=3, delay=0.5):
+    """数据库锁定重试装饰器"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    if "database is locked" in str(e) and attempt < max_retries - 1:
+                        logger.warning("数据库锁定，第%d次重试", attempt + 1)
+                        time.sleep(delay * (attempt + 1))
+                    else:
+                        raise
+        return wrapper
+    return decorator
+
+
+def safe_commit(db):
+    """安全的数据库提交，带重试机制"""
+    retry_on_db_lock()(db.commit)()
 
 
 def get_video_info(bvid: str) -> dict:
@@ -86,17 +111,35 @@ def download_single_videos(bvids: list, quality: str, force: bool):
             print(f"  UP主: {video_info['owner']}")
             print(f"  时长: {video_info['duration']}")
 
-            # 2. 检查数据库
+            # 2. 检查数据库和视频文件
             existing = db.query(Video).filter_by(bvid=bvid).first()
 
+            # 检查视频文件是否真实存在
+            has_video_file = False
+            if existing and existing.video_path:
+                # 优先使用数据库中的路径
+                video_file = Path(existing.video_path)
+                has_video_file = video_file.exists()
+            if not has_video_file:
+                # 如果数据库路径无效，搜索目录下是否有该 bvid 的文件
+                video_dir = Path("data/video")
+                if video_dir.exists():
+                    for f in video_dir.glob(f"*{bvid}*.mp4"):
+                        has_video_file = True
+                        break
+
             if existing:
-                if force:
-                    print(f"[更新] 强制重新下载")
+                if force or not existing.has_video or not has_video_file:
+                    # 强制重新下载 或 视频文件缺失
+                    if not has_video_file:
+                        print(f"[续传] 视频文件缺失，重新下载")
+                    else:
+                        print(f"[更新] 强制重新下载")
                     existing.status = "pending"
                     existing.attempt_count = 0
                     existing.last_error = None
                 else:
-                    print(f"[跳过] 视频已存在")
+                    print(f"[跳过] 视频已存在且已下载")
                     continue
             else:
                 print(f"[添加] 新视频")
@@ -108,6 +151,7 @@ def download_single_videos(bvids: list, quality: str, force: bool):
                     status="pending"
                 )
                 db.add(new_video)
+                safe_commit(db)  # 立即提交，让 queue_worker 能看到
 
             # 3. 下载视频
             try:
@@ -125,7 +169,7 @@ def download_single_videos(bvids: list, quality: str, force: bool):
                     vid_obj.has_video = True
                     vid_obj.video_path = video_path
 
-                db.commit()
+                safe_commit(db)
                 print(f"✓ 下载完成: {Path(video_path).name}")
 
             except Exception as e:
@@ -172,12 +216,30 @@ def download_batch(mid: str, start_date: int = None, end_date: int = None,
             title = video["title"]
             pubdate = video.get("pubdate", 0)
 
-            # 检查数据库
+            # 检查数据库和视频文件
             existing = db.query(Video).filter_by(bvid=bvid).first()
 
+            # 检查视频文件是否真实存在
+            has_video_file = False
+            if existing and existing.video_path:
+                # 优先使用数据库中的路径
+                video_file = Path(existing.video_path)
+                has_video_file = video_file.exists()
+            if not has_video_file:
+                # 如果数据库路径无效，搜索目录下是否有该 bvid 的文件
+                video_dir = Path("data/video")
+                if video_dir.exists():
+                    for f in video_dir.glob(f"*{bvid}*.mp4"):
+                        has_video_file = True
+                        break
+
             if existing:
-                if force:
-                    print(f"[更新] {bvid} | {title[:50]}...")
+                if force or not existing.has_video or not has_video_file:
+                    # 强制重新下载 或 视频文件缺失
+                    if not has_video_file:
+                        print(f"[续传] {bvid} | 视频文件缺失")
+                    else:
+                        print(f"[更新] {bvid} | {title[:50]}...")
                     existing.status = "pending"
                     existing.attempt_count = 0
                     existing.last_error = None
@@ -197,29 +259,29 @@ def download_batch(mid: str, start_date: int = None, end_date: int = None,
                 )
                 db.add(new_video)
                 added_count += 1
+                safe_commit(db)  # 立即提交，让 queue_worker 能看到
 
             # 下载视频
             try:
-                download_video(
+                actual_video_path = download_video(
                     bvid,
                     quality=quality,
                     title=title,
                     pub_time=pubdate
                 )
 
-                # 更新数据库
+                # 更新数据库（使用实际返回的路径）
                 vid_obj = db.query(Video).filter_by(bvid=bvid).first()
                 if vid_obj:
                     vid_obj.has_video = True
-                    vid_obj.video_path = str(Path("data/video") / f"{bvid}.mp4")
+                    vid_obj.video_path = actual_video_path
 
+                safe_commit(db)  # 立即提交更新
                 print(f"  ✓ 下载完成")
 
             except Exception as e:
                 logger.error("下载失败 %s: %s", bvid, e)
                 print(f"  ✗ 下载失败: {e}")
-
-        db.commit()
 
         print(f"\n{'='*50}")
         print(f"完成！新增: {added_count}, 更新: {updated_count}, 跳过: {skipped_count}")
@@ -248,17 +310,17 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  # 下载单个视频
+  # 下载单个视频 (BV 开头自动识别)
   %(prog)s BV1C8ZiBDEdx
 
-  # 下载多个视频
-  %(prog)s BV1C8ZiBDEdx BV1iz6pBxEmV
-
-  # 批量下载 UP主所有视频
+  # 批量下载 UP主所有视频 (纯数字自动识别)
   %(prog)s 1988098633 --all
 
   # 批量下载指定日期范围
   %(prog)s 1988098633 --start-date 20250101 --end-date 20250331
+
+  # 下载多个视频
+  %(prog)s BV1C8ZiBDEdx BV1iz6pBxEmV
 
   # 指定清晰度
   %(prog)s BV1C8ZiBDEdx --quality 1080p
@@ -268,8 +330,8 @@ def main():
         """
     )
 
-    # 视频 ID（位置参数）
-    parser.add_argument("ids", nargs="*", help="视频 ID (BV号) 或 UP主 ID")
+    # 主参数（视频ID或UP主ID）
+    parser.add_argument("ids", nargs="+", help="视频 ID (BV开头) 或 UP 主 ID (纯数字)")
 
     # 批量下载选项
     parser.add_argument("--all", action="store_true", help="批量下载：下载 UP主所有视频")
@@ -288,13 +350,18 @@ def main():
 
     args = parser.parse_args()
 
-    # 判断模式
-    if args.all or args.start_date:
-        # 批量下载模式
-        if not args.ids or len(args.ids) != 1:
-            parser.error("批量下载模式需要指定一个 UP 主 ID")
+    # 自动识别模式
+    has_batch_flag = args.all or args.start_date or args.end_date
+
+    if has_batch_flag:
+        # 批量下载模式：需要 UP 主 ID
+        if len(args.ids) != 1:
+            parser.error("批量下载模式需要指定一个 UP 主 ID（纯数字）")
 
         mid = args.ids[0]
+        if not mid.isdigit():
+            parser.error(f"UP 主 ID 应该是纯数字，但得到: {mid}")
+
         print(f"批量下载模式: UP 主 {mid}")
         if args.all:
             print("  范围: 所有视频")
@@ -303,14 +370,24 @@ def main():
 
         download_batch(mid, args.start_date, args.end_date, args.quality, args.force)
 
-    elif args.ids:
-        # 单视频下载模式
-        bvids = args.ids
+    else:
+        # 单视频下载模式：支持多个视频 ID
+        bvids = []
+        for id_str in args.ids:
+            if id_str.startswith("BV"):
+                bvids.append(id_str)
+            elif id_str.isdigit():
+                print(f"警告: {id_str} 看起来像 UP 主 ID，但没有使用 --all 参数")
+                print(f"  如果要批量下载，请使用: {sys.argv[0]} {id_str} --all")
+                continue
+            else:
+                print(f"警告: 无法识别 ID 类型: {id_str}")
+
+        if not bvids:
+            parser.error("没有找到有效的视频 ID (应以 BV 开头)")
+
         print(f"单视频下载模式: {len(bvids)} 个视频")
         download_single_videos(bvids, args.quality, args.force)
-
-    else:
-        parser.print_help()
 
 
 if __name__ == "__main__":

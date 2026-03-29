@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from functools import wraps
 from app.utils.logger import get_logger
 from app.models.database import get_db, Video, Dynamic
 from app.modules.subtitle import get_subtitles
@@ -14,6 +15,24 @@ from app.modules.push import push_content
 from app.modules.dynamic import should_push_dynamic
 
 logger = get_logger("queue_worker")
+
+
+def retry_on_db_lock(max_retries=3, delay=0.5):
+    """数据库锁定重试装饰器"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    if "database is locked" in str(e) and attempt < max_retries - 1:
+                        logger.warning("数据库锁定，第%d次重试: %s", attempt + 1, e)
+                        time.sleep(delay * (attempt + 1))
+                    else:
+                        raise
+        return wrapper
+    return decorator
 
 # 数据保存路径
 DATA_ROOT = Path(__file__).resolve().parent.parent / "data"
@@ -311,27 +330,27 @@ def start_queue_worker(max_workers: int = 3):
                     # 提交动态任务 - 先更新状态为 processing
                     for dyn in pending_dynamics:
                         dyn.status = "processing"
-                        db.commit()
+                        retry_on_db_lock()(db.commit)()
                         executor.submit(process_single_dynamic, dyn.dynamic_id)
 
                     # 提交已失败但可重试的动态 - 先更新状态为 processing
                     for dyn in retry_dynamics:
                         logger.info("重新处理失败动态: %s (第%d次重试)", dyn.dynamic_id, dyn.attempt_count + 1)
                         dyn.status = "processing"
-                        db.commit()
+                        retry_on_db_lock()(db.commit)()
                         executor.submit(process_single_dynamic, dyn.dynamic_id)
 
                     # 提交视频任务 - 先更新状态为 processing
                     for vid in pending_videos:
                         vid.status = "processing"
-                        db.commit()
+                        retry_on_db_lock()(db.commit)()
                         executor.submit(process_single_video, vid.bvid)
 
                     # 提交已失败但可重试的视频 - 先更新状态为 processing
                     for vid in retry_videos:
                         logger.info("重新处理失败视频: %s (第%d次重试)", vid.bvid, vid.attempt_count + 1)
                         vid.status = "processing"
-                        db.commit()
+                        retry_on_db_lock()(db.commit)()
                         executor.submit(process_single_video, vid.bvid)
 
                     time.sleep(5)
