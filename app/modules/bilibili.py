@@ -3,6 +3,7 @@ import time
 from typing import List, Optional
 from config import Config
 from app.utils.logger import get_logger
+from app.modules.wbi import sign_params
 
 logger = get_logger("bilibili")
 
@@ -68,7 +69,7 @@ def fetch_all_videos(mid: str, start_date: Optional[int] = None, end_date: Optio
     """
     获取 UP 主所有视频（支持分页和日期范围过滤）
 
-    使用 Session 复用连接，减少 API 限流风险
+    使用 WBI 签名接口，减少限流风险
 
     Args:
         mid: UP 主 ID
@@ -82,23 +83,30 @@ def fetch_all_videos(mid: str, start_date: Optional[int] = None, end_date: Optio
     _check_cookie()
 
     session = _get_session()
-    url = "https://api.bilibili.com/x/space/arc/search"
+    url = "https://api.bilibili.com/x/space/wbi/arc/search"
 
     all_videos = []
     page = 1
-    page_size = 30  # B站 API 每页最多30条
+    page_size = 25  # WBI 接口建议使用 25
 
-    logger.info("开始获取 UP 主 %s 的所有视频...", mid)
+    logger.info("开始获取 UP 主 %s 的所有视频 (使用 WBI 签名)...", mid)
 
     try:
         while True:
+            # 构建参数
             params = {
                 "mid": mid,
                 "ps": page_size,
-                "pn": page
+                "pn": page,
+                "tid": 0,
+                "order": "pubdate",
+                "order_avoided": "true"
             }
 
-            resp = session.get(url, params=params, timeout=15)
+            # WBI 签名
+            signed_params = sign_params(params)
+
+            resp = session.get(url, params=signed_params, timeout=15)
             resp.raise_for_status()
             data = resp.json()
 
@@ -154,7 +162,7 @@ def fetch_all_videos(mid: str, start_date: Optional[int] = None, end_date: Optio
 
             # 每页之间延迟，避免限流
             if page > 1:
-                time.sleep(1)
+                time.sleep(0.5)
 
         return all_videos
     finally:
