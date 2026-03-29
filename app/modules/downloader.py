@@ -30,13 +30,31 @@ def _get_ytdlp_cookies_args() -> list:
     if not Config.BILIBILI_COOKIE:
         return []
 
-    # 将 Cookie 字符串转换为临时文件
-    # yt-dlp 支持 --cookies 参数，但需要 Netscape cookie 格式
-    # 简化方案：直接使用 --add-header
-    return [
-        "--add-header",
-        f"Cookie:{Config.BILIBILI_COOKIE}"
-    ]
+    # 将 Cookie 字符串写入临时文件（Netscape 格式）
+    import tempfile
+
+    # 创建临时 cookie 文件
+    cookie_file = tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False)
+    cookie_path = cookie_file.name
+
+    try:
+        # 简化的 Netscape cookie 格式
+        # B站主要域名是 .bilibili.com
+        cookie_file.write("# Netscape HTTP Cookie File\n")
+        cookie_file.write("# This is a generated file! Do not edit.\n\n")
+
+        # 解析 Cookie 字符串
+        for part in Config.BILIBILI_COOKIE.split(';'):
+            part = part.strip()
+            if '=' in part:
+                name, value = part.split('=', 1)
+                cookie_file.write(f".bilibili.com\tTRUE\t/\tTRUE\t0\t{name}\t{value}\n")
+
+        cookie_file.close()
+        return ["--cookies", cookie_path]
+    except Exception as e:
+        logger.error("创建 Cookie 文件失败: %s", e)
+        return []
 
 
 def download_audio(bvid: str, output_dir: str = "data/audio") -> str:
@@ -71,14 +89,28 @@ def download_audio(bvid: str, output_dir: str = "data/audio") -> str:
     ]
 
     logger.info("开始下载音频: %s", bvid)
-    proc = subprocess.run(cmd, capture_output=True, text=True)
 
-    if proc.returncode != 0:
-        logger.error("yt-dlp 下载失败: %s", proc.stderr)
-        raise RuntimeError(f"下载失败: {proc.stderr}")
+    # 清理临时 Cookie 文件
+    cookie_file = None
+    if len(cmd) > 8 and cmd[8] == "--cookies":
+        cookie_file = Path(cmd[9])
 
-    logger.info("下载完成: %s", output_template)
-    return output_template
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+
+        if proc.returncode != 0:
+            logger.error("yt-dlp 下载失败: %s", proc.stderr)
+            raise RuntimeError(f"下载失败: {proc.stderr}")
+
+        logger.info("下载完成: %s", output_template)
+        return output_template
+    finally:
+        # 清理临时 Cookie 文件
+        if cookie_file and cookie_file.exists():
+            try:
+                cookie_file.unlink()
+            except:
+                pass
 
 
 def download_video(bvid: str, quality: str = DEFAULT_QUALITY, output_dir: str = "data/video") -> str:
@@ -123,14 +155,28 @@ def download_video(bvid: str, quality: str = DEFAULT_QUALITY, output_dir: str = 
     ]
 
     logger.info("开始下载视频: %s (清晰度: %s)", bvid, quality)
-    proc = subprocess.run(cmd, capture_output=True, text=True)
 
-    if proc.returncode != 0:
-        logger.error("yt-dlp 下载视频失败: %s", proc.stderr)
-        raise RuntimeError(f"下载视频失败: {proc.stderr}")
+    # 清理临时 Cookie 文件
+    cookie_file = None
+    if len(cmd) > 9 and cmd[9] == "--cookies":
+        cookie_file = Path(cmd[10])
 
-    logger.info("视频下载完成: %s", output_template)
-    return output_template
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+
+        if proc.returncode != 0:
+            logger.error("yt-dlp 下载视频失败: %s", proc.stderr)
+            raise RuntimeError(f"下载视频失败: {proc.stderr}")
+
+        logger.info("视频下载完成: %s", output_template)
+        return output_template
+    finally:
+        # 清理临时 Cookie 文件
+        if cookie_file and cookie_file.exists():
+            try:
+                cookie_file.unlink()
+            except:
+                pass
 
 
 def extract_audio_from_video(video_path: str) -> str:
