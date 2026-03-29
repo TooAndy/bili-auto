@@ -1,9 +1,20 @@
 import requests
+import time
 from typing import List, Optional
 from config import Config
 from app.utils.logger import get_logger
 
 logger = get_logger("bilibili")
+
+
+def _check_cookie() -> None:
+    """检查是否配置了 BILIBILI_COOKIE"""
+    if not Config.BILIBILI_COOKIE:
+        raise RuntimeError(
+            "批量获取视频需要配置 BILIBILI_COOKIE 以避免限流。\n"
+            "请在 .env 文件中设置 BILIBILI_COOKIE。\n"
+            "获取方式：登录 B站 后，在浏览器开发者工具中复制 Cookie 值"
+        )
 
 
 def _get_session() -> requests.Session:
@@ -67,6 +78,9 @@ def fetch_all_videos(mid: str, start_date: Optional[int] = None, end_date: Optio
     Returns:
         视频列表，按发布时间倒序
     """
+    # 检查 Cookie 配置
+    _check_cookie()
+
     session = _get_session()
     url = "https://api.bilibili.com/x/space/arc/search"
 
@@ -137,6 +151,10 @@ def fetch_all_videos(mid: str, start_date: Optional[int] = None, end_date: Optio
                 break
 
             page += 1
+
+            # 每页之间延迟，避免限流
+            if page > 1:
+                time.sleep(1)
 
         return all_videos
     finally:

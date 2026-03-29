@@ -176,11 +176,25 @@ def main():
     # 获取视频列表
     print(f"\n正在获取 UP 主 {args.mid} 的视频列表...")
 
-    videos = fetch_all_videos(
-        mid=args.mid,
-        start_date=args.start_date,
-        end_date=args.end_date
-    )
+    try:
+        videos = fetch_all_videos(
+            mid=args.mid,
+            start_date=args.start_date,
+            end_date=args.end_date
+        )
+    except RuntimeError as e:
+        print(f"\n错误: {e}")
+        print("\n获取 Bilibili Cookie 的方法:")
+        print("1. 登录 https://www.bilibili.com")
+        print("2. 按 F12 打开开发者工具")
+        print("3. 切换到 Network (网络) 标签")
+        print("4. 刷新页面，点击任意请求")
+        print("5. 在 Request Headers 中找到 Cookie")
+        print("6. 复制完整的 Cookie 值到 .env 文件的 BILIBILI_COOKIE")
+        return
+    except Exception as e:
+        print(f"\n获取视频列表失败: {e}")
+        return
 
     if not videos:
         print("未找到符合条件的视频")
