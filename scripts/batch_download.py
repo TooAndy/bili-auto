@@ -170,6 +170,7 @@ def main():
     # 其他选项
     parser.add_argument("--preview", action="store_true", help="预览模式，仅列出视频不下载")
     parser.add_argument("--force", action="store_true", help="强制重新处理已存在的视频")
+    parser.add_argument("--yes", "-y", action="store_true", help="跳过确认，自动开始下载")
 
     args = parser.parse_args()
 
@@ -210,10 +211,13 @@ def main():
     if args.force:
         print("注意: 已存在的视频将被重新处理")
 
-    confirm = input("\n确认继续? (y/n): ").strip().lower()
-    if confirm != 'y':
-        print("已取消")
-        return
+    if not args.yes:
+        confirm = input("\n确认继续? (y/n): ").strip().lower()
+        if confirm != 'y':
+            print("已取消")
+            return
+    else:
+        print("自动确认，开始下载...")
 
     # 添加到数据库并下载
     add_videos_to_db(videos, args.mid, args.quality, args.force)
