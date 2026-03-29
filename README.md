@@ -76,7 +76,7 @@ cp .env.example .env
 # - OPENAI_API_KEY (支持 OpenAI/DeepSeek/通义千问等)
 # - OPENAI_BASE_URL (自定义 API 端点)
 # - OPENAI_MODEL (模型名称)
-# - BILIBILI_COOKIE (可选，避免限流)
+# - BILIBILI_COOKIE (批量下载必须配置，避免限流)
 # - VIDEO_CHECK_INTERVAL (视频检测间隔，分钟)
 # - DYNAMIC_CHECK_INTERVAL (动态检测间隔，分钟，<=0 禁用)
 # - USE_WHISPER_CPP (是否使用 whisper.cpp)
