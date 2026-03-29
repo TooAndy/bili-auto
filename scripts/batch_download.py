@@ -99,7 +99,12 @@ def add_videos_to_db(videos: list, mid: str, quality: str, force: bool = False):
             # 下载视频
             try:
                 print(f"      ↓ 下载视频 (清晰度: {quality})...")
-                video_path = download_video(bvid, quality=quality)
+                video_path = download_video(
+                    bvid,
+                    quality=quality,
+                    title=video.get("title"),
+                    pub_time=video.get("pubdate")
+                )
 
                 # 更新视频路径
                 vid_obj = db.query(Video).filter_by(bvid=bvid).first()

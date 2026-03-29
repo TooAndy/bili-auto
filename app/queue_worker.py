@@ -7,7 +7,7 @@ from datetime import datetime
 from app.utils.logger import get_logger
 from app.models.database import get_db, Video, Dynamic
 from app.modules.subtitle import get_subtitles
-from app.modules.downloader import download_audio
+from app.modules.downloader import download_audio, _generate_filename
 from app.modules.whisper_ai import transcribe_audio
 from app.modules.processor import process_text
 from app.modules.push import push_content
@@ -125,13 +125,17 @@ def process_single_video(bvid: str):
 
             # 保存文本和 details 到文件（如果还没保存过）
             if subtitles:
-                text_file = TEXT_DIR / f"{bvid}.txt"
+                # 生成文件名
+                text_filename = _generate_filename(bvid, video.title, video.pub_time, "txt")
+                text_file = TEXT_DIR / text_filename
                 if not text_file.exists():
                     text_file.write_text(subtitles, "utf-8")
                     logger.debug("[保存] 文本已保存: %s", text_file)
 
             if summary_data.get("details"):
-                md_file = MARKDOWN_DIR / f"{bvid}.md"
+                # 生成文件名
+                md_filename = _generate_filename(bvid, video.title, video.pub_time, "md")
+                md_file = MARKDOWN_DIR / md_filename
                 md_content = f"# {video.title}\n\n"
                 md_content += f"**URL**: https://www.bilibili.com/video/{bvid}\n\n"
                 if video.pub_time:

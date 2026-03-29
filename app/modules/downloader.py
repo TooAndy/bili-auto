@@ -1,6 +1,8 @@
 import subprocess
 import os
 import tempfile
+import re
+from datetime import datetime
 from pathlib import Path
 from app.utils.logger import get_logger
 from config import Config
@@ -18,6 +20,58 @@ QUALITY_FORMATS = {
 }
 
 DEFAULT_QUALITY = "high"
+
+
+def _sanitize_filename(title: str, max_length: int = 50) -> str:
+    """
+    清理文件名，移除或替换特殊字符
+
+    Args:
+        title: 原始标题
+        max_length: 最大长度（超过则截断）
+
+    Returns:
+        清理后的文件名
+    """
+    # 移除或替换特殊字符
+    title = re.sub(r'[<>:"|?*]', '', title)  # Windows 不允许的字符
+    title = re.sub(r'[\\/]', '-', title)       # 斜杠改为减号
+    title = re.sub(r'\s+', '_', title)         # 空格改为下划线
+    title = title.strip('._')                  # 移除首尾的点和下划线
+
+    # 截断过长的标题
+    if len(title) > max_length:
+        title = title[:max_length].rsplit('_', 1)[0]  # 在下划线处截断
+
+    return title
+
+
+def _generate_filename(bvid: str, title: str, pub_time: int = None, ext: str = "mp4") -> str:
+    """
+    生成文件名：日期_BVID_标题.ext
+
+    Args:
+        bvid: 视频 ID
+        title: 视频标题
+        pub_time: 发布时间（Unix timestamp）
+        ext: 文件扩展名
+
+    Returns:
+        生成的文件名
+    """
+    # 处理发布时间
+    if pub_time:
+        date_str = datetime.fromtimestamp(pub_time).strftime("%Y%m%d")
+    else:
+        date_str = "unknown"
+
+    # 清理标题
+    clean_title = _sanitize_filename(title)
+
+    # 组合文件名
+    filename = f"{date_str}_{bvid}_{clean_title}.{ext}"
+
+    return filename
 
 
 def _get_ytdlp_cookies_args() -> list:
@@ -57,10 +111,17 @@ def _get_ytdlp_cookies_args() -> list:
         return []
 
 
-def download_audio(bvid: str, output_dir: str = "data/audio") -> str:
+def download_audio(bvid: str, output_dir: str = "data/audio", title: str = None, pub_time: int = None) -> str:
     outdir = Path(output_dir)
     outdir.mkdir(parents=True, exist_ok=True)
-    output_path = outdir / f"{bvid}.m4a"
+
+    # 生成文件名（新格式）
+    if title and pub_time:
+        filename = _generate_filename(bvid, title, pub_time, "m4a")
+    else:
+        filename = f"{bvid}.m4a"
+
+    output_path = outdir / filename
 
     # 检查文件是否已存在
     if output_path.exists():
@@ -113,7 +174,7 @@ def download_audio(bvid: str, output_dir: str = "data/audio") -> str:
                 pass
 
 
-def download_video(bvid: str, quality: str = DEFAULT_QUALITY, output_dir: str = "data/video") -> str:
+def download_video(bvid: str, quality: str = DEFAULT_QUALITY, output_dir: str = "data/video", title: str = None, pub_time: int = None) -> str:
     """
     下载 B站视频
 
@@ -123,13 +184,22 @@ def download_video(bvid: str, quality: str = DEFAULT_QUALITY, output_dir: str = 
         bvid: 视频 ID
         quality: 清晰度，可选: 4k, high, 1080p, 720p, 480p, 360p，默认 high
         output_dir: 输出目录
+        title: 视频标题（用于生成文件名）
+        pub_time: 发布时间（用于生成文件名）
 
     Returns:
         视频文件路径
     """
     outdir = Path(output_dir)
     outdir.mkdir(parents=True, exist_ok=True)
-    output_path = outdir / f"{bvid}.mp4"
+
+    # 生成文件名（新格式）
+    if title and pub_time:
+        filename = _generate_filename(bvid, title, pub_time, "mp4")
+    else:
+        filename = f"{bvid}.mp4"
+
+    output_path = outdir / filename
 
     # 检查文件是否已存在
     if output_path.exists():
