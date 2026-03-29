@@ -41,18 +41,60 @@ def _get_session() -> requests.Session:
 
 
 def fetch_channel_videos(mid: str, limit: int = 5) -> List[dict]:
-    """获取 UP 主最新视频列表"""
+    """
+    获取 UP 主最新视频列表
+
+    使用 WBI 签名接口，减少限流风险
+
+    Args:
+        mid: UP 主 ID
+        limit: 获取数量
+
+    Returns:
+        视频列表
+    """
     session = _get_session()
-    url = "https://api.bilibili.com/x/space/arc/search"
 
     try:
-        resp = session.get(url, params={"mid": mid, "ps": limit, "pn": 1}, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
+        # 先尝试 WBI 签名接口
+        url = "https://api.bilibili.com/x/space/wbi/arc/search"
+        params = {
+            "mid": str(mid),
+            "ps": str(min(limit, 25)),  # WBI 接口最大 25
+            "pn": "1",
+            "tid": "0",
+            "special_type": "",
+            "order": "pubdate",
+            "index": "0",
+            "keyword": "",
+            "order_avoided": "true",
+        }
 
-        if data.get("code") != 0:
-            logger.error("bilibili channel videos fetch error: %s", data.get("message"))
-            return []
+        try:
+            signed_params = sign_params(params)
+            resp = session.get(url, params=signed_params, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+
+            # 检查是否是权限问题
+            if data.get("code") != 0:
+                error_msg = data.get("message", "")
+                if "权限" in error_msg or "访问" in error_msg:
+                    logger.debug("WBI 接口权限不足，降级到旧接口")
+                    raise RuntimeError("WBI permission denied")
+                else:
+                    logger.error("bilibili API error: %s", error_msg)
+                    return []
+        except RuntimeError:
+            # 降级到旧接口
+            url = "https://api.bilibili.com/x/space/arc/search"
+            resp = session.get(url, params={"mid": mid, "ps": limit, "pn": 1}, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+
+            if data.get("code") != 0:
+                logger.error("bilibili API error: %s", data.get("message"))
+                return []
 
         items = data.get("data", {}).get("list", {}).get("vlist", [])
         videos = []
