@@ -26,8 +26,14 @@ def _get_session() -> requests.Session:
     """
     session = requests.Session()
     session.headers.update({
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Referer": "https://www.bilibili.com",
+        "Origin": "https://www.bilibili.com",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-site",
     })
     if Config.BILIBILI_COOKIE:
         session.headers.update({"Cookie": Config.BILIBILI_COOKIE})
@@ -93,18 +99,22 @@ def fetch_all_videos(mid: str, start_date: Optional[int] = None, end_date: Optio
 
     try:
         while True:
-            # 构建参数
+            # 构建参数（参考 curl 命令）
             params = {
-                "mid": mid,
-                "ps": page_size,
-                "pn": page,
-                "tid": 0,
+                "mid": str(mid),
+                "ps": str(page_size),
+                "pn": str(page),
+                "tid": "0",
+                "special_type": "",
                 "order": "pubdate",
-                "order_avoided": "true"
+                "index": "0",
+                "keyword": "",
+                "order_avoided": "true",
             }
 
             # WBI 签名
             signed_params = sign_params(params)
+            logger.debug("WBI 签名参数: %s", {k: v for k, v in signed_params.items() if k not in ['w_rid', 'wts']})
 
             resp = session.get(url, params=signed_params, timeout=15)
             resp.raise_for_status()
