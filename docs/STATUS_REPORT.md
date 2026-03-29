@@ -29,9 +29,11 @@
   - 字幕 JSON 格式解析
   - 支持多国语言字幕
 
-- ✅ 音频下载 (`downloader.py`)
+- ✅ 音视频下载 (`downloader.py`)
   - yt-dlp 集成
-  - **m4a 格式（128k）**，节省空间
+  - **视频下载（mp4 格式）**，支持多种清晰度（4K, high, 1080P, 720P, 480P）
+  - **音频下载（m4a 格式，128k）**，节省空间
+  - **从视频提取音频**（ffmpeg），支持视频文件直接进行语音识别
   - 兼容旧的 wav/mp3 文件
   - 本地文件管理
 
@@ -89,7 +91,8 @@
 
 - ✅ 队列处理 (`queue_worker.py`)
   - 并发处理（3 worker）
-  - 视频完整流程：字幕 → Whisper → LLM（纠错+总结） → 推送
+  - 视频完整流程：字幕/视频 → Whisper（支持视频输入） → LLM（纠错+总结） → 推送
+  - **优先检查视频文件**，兼容音频文件
   - 动态简化流程：过滤 → 推送
   - 失败重试机制（最多 3 次）
   - 状态机管理：pending → processing → done/failed
@@ -99,7 +102,7 @@
 
 - ✅ 数据库表设计
   - `subscriptions`: UP 主订阅表
-  - `videos`: 视频表（含摘要 JSON）
+  - `videos`: 视频表（含摘要 JSON、视频路径、音频路径）
   - `dynamics`: 动态表（含图片路径）
   - `summaries`: 摘要表（备用）
   - `logs`: 日志表（可选）
@@ -119,6 +122,11 @@
 
 ### 6. 实用脚本
 
+- ✅ `scripts/batch_download.py` - 批量下载 UP主视频
+  - 支持下载所有视频或按日期范围过滤
+  - 支持多种清晰度选择（4K, high, 1080P, 720P, 480P）
+  - 自动添加到数据库并触发处理流程
+  - 支持预览模式和强制重新处理
 - ✅ `scripts/manage_subscriptions.py` - UP主订阅管理
 - ✅ `scripts/reset_processing.py` - 重置 processing 状态任务
 - ✅ `scripts/test_asr_file.py` - 测试 ASR 识别
@@ -134,6 +142,41 @@
   - `test_downloader.py` - 下载器测试
   - `test_subtitle.py` - 字幕获取测试
   - `conftest.py` - pytest fixtures
+
+### 8. 批量下载功能
+
+- ✅ 批量下载 UP主所有视频
+  - 支持日期范围过滤
+  - 支持多种清晰度选择
+  - 预览模式
+  - 强制重新处理
+  - 自动入库并触发处理流程
+
+**使用示例：**
+```bash
+# 下载所有视频（默认最高清晰度）
+uv run scripts/batch_download.py 1988098633 --all
+
+# 按日期范围下载
+uv run scripts/batch_download.py 1988098633 --start-date 20250101 --end-date 20250331
+
+# 预览模式
+uv run scripts/batch_download.py 1988098633 --all --preview
+
+# 指定清晰度
+uv run scripts/batch_download.py 1988098633 --all --quality 1080p
+
+# 强制重新处理已存在的视频
+uv run scripts/batch_download.py 1988098633 --all --force
+```
+
+**清晰度选项：**
+- `4k` - 4K (2160P)
+- `high` - 最高可用（默认）
+- `1080p` - 1080P
+- `720p` - 720P
+- `480p` - 480P
+- `360p` - 360P
 
 ---
 
@@ -251,6 +294,7 @@ bili-auto/
 │       └── errors.py         # 错误定义
 │
 ├── scripts/
+│   ├── batch_download.py       # 批量下载 UP主视频
 │   ├── manage_subscriptions.py  # UP主订阅管理
 │   ├── reset_processing.py      # 重置 processing 状态
 │   ├── test_asr_file.py        # 测试 ASR 识别
@@ -269,6 +313,7 @@ bili-auto/
 │   └── prompt.txt          # LLM 提示词模板
 │
 ├── data/
+│   ├── video/              # 视频文件（mp4）
 │   ├── audio/              # 音频文件（m4a）
 │   ├── text/               # 识别文本保存
 │   ├── markdown/           # 详细总结保存（Markdown）
@@ -284,7 +329,7 @@ bili-auto/
 
 ### 视频处理流程
 ```
-1. 调度器定时检测（可配置间隔）
+1. 调度器定时检测（可配置间隔）或批量下载工具
    ↓
 2. 获取UP主最新视频列表
    ↓
@@ -294,15 +339,19 @@ bili-auto/
    ↓
 5. 检查 data/text/{bvid}.txt 是否存在
    ├─ 存在 → 直接读取使用
-   └─ 不存在 → 获取字幕或下载音频转写
+   └─ 不存在 → 检查媒体文件
+       ├─ 优先检查 data/video/{bvid}.mp4（视频）
+       └─ 其次检查 data/audio/{bvid}.m4a（音频）
    ↓
-6. LLM 统一处理（纠错 + 总结）
+6. 获取字幕或使用 Whisper 转写（支持视频直接提取音频）
    ↓
-7. 保存文本到 data/text/，保存详情到 data/markdown/
+7. LLM 统一处理（纠错 + 总结）
    ↓
-8. 推送到配置的渠道（当前为占位符）
+8. 保存文本到 data/text/，保存详情到 data/markdown/
    ↓
-9. 更新数据库状态 (status='done'/'failed')
+9. 推送到配置的渠道（当前为占位符）
+   ↓
+10. 更新数据库状态 (status='done'/'failed')
 ```
 
 ### 动态处理流程

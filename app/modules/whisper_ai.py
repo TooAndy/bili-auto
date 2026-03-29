@@ -49,10 +49,36 @@ def transcribe_audio(audio_path: str) -> str:
     """
     使用 Whisper 进行语音识别
 
+    支持视频文件输入（自动提取音频）
+
     如果配置了 USE_WHISPER_CPP=true 且 whisper.cpp 可用，使用 whisper.cpp
     否则使用 faster-whisper
     """
     logger.info("Whisper 识别: %s", audio_path)
+
+    # 检查是否是视频文件
+    video_extensions = ['.mp4', '.mkv', '.avi', '.mov', '.flv', '.wmv', '.webm']
+    input_path = Path(audio_path)
+
+    if input_path.suffix.lower() in video_extensions:
+        logger.debug("检测到视频文件，先提取音频...")
+        from app.modules.downloader import extract_audio_from_video
+        temp_audio = extract_audio_from_video(str(input_path))
+        logger.debug("临时音频文件: %s", temp_audio)
+
+        try:
+            if USE_WHISPER_CPP:
+                result = _transcribe_with_cpp(temp_audio)
+            else:
+                result = _transcribe_with_faster_whisper(temp_audio)
+        finally:
+            # 清理临时文件
+            try:
+                Path(temp_audio).unlink()
+                logger.debug("已清理临时音频文件")
+            except:
+                pass
+        return result
 
     if USE_WHISPER_CPP:
         return _transcribe_with_cpp(audio_path)

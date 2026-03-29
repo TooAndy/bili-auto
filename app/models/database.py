@@ -41,8 +41,10 @@ class Video(Base):
     mid = Column(String, nullable=False)
     pub_time = Column(Integer, nullable=True)  # 发布时间戳
     has_subtitle = Column(Boolean, default=False)  # 是否有字幕
+    has_video = Column(Boolean, default=False)  # 是否成功下载视频
     has_audio = Column(Boolean, default=False)  # 是否成功下载音频
     subtitle_path = Column(String, nullable=True)  # 字幕文件路径
+    video_path = Column(String, nullable=True)  # 视频文件路径
     audio_path = Column(String, nullable=True)  # 音频文件路径
     status = Column(String, default="pending")  # pending|processing|done|failed
     attempt_count = Column(Integer, default=0)  # 处理尝试次数

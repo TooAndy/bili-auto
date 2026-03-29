@@ -18,12 +18,12 @@ bili-auto/
 ├── app/                    # 核心应用模块
 │   ├── modules/           # 功能模块
 │   │   ├── bilibili.py   # B站API接口
-│   │   ├── downloader.py # 音视频下载（m4a 格式）
+│   │   ├── downloader.py # 音视频下载（m4a + mp4）
 │   │   ├── dynamic.py    # 动态处理
 │   │   ├── processor.py  # 统一处理（纠错+总结）
 │   │   ├── push.py       # 消息推送
 │   │   ├── subtitle.py   # 字幕获取
-│   │   └── whisper_ai.py # 语音识别（faster-whisper + whisper.cpp）
+│   │   └── whisper_ai.py # 语音识别（faster-whisper + whisper.cpp，支持视频输入）
 │   ├── models/           # 数据模型
 │   │   └── database.py   # SQLAlchemy ORM
 │   ├── utils/            # 工具函数
@@ -32,6 +32,7 @@ bili-auto/
 │   ├── queue_worker.py   # 任务队列处理
 │   └── scheduler.py      # 定时任务调度
 ├── scripts/              # 实用脚本工具
+│   ├── batch_download.py        # 批量下载 UP主视频
 │   ├── manage_subscriptions.py  # UP主订阅管理工具
 │   ├── reset_processing.py      # 重置 processing 状态
 │   ├── test_asr_file.py        # 测试 ASR 识别
@@ -44,6 +45,7 @@ bili-auto/
 ├── demo/                 # 示例文件
 │   └── prompt.txt        # LLM 提示词模板
 ├── data/                 # 数据目录
+│   ├── video/           # 下载的视频（mp4）
 │   ├── audio/           # 下载的音频（m4a）
 │   ├── text/            # 识别文本保存
 │   ├── markdown/        # 详细总结保存（Markdown）
@@ -99,6 +101,12 @@ uv run python main.py
 ### 5. 实用工具
 
 ```bash
+# 批量下载 UP主视频
+uv run scripts/batch_download.py <mid> --all                    # 所有视频
+uv run scripts/batch_download.py <mid> --start-date 20250101    # 按日期范围
+uv run scripts/batch_download.py <mid> --all --preview          # 预览模式
+uv run scripts/batch_download.py <mid> --all --quality 1080p    # 指定清晰度
+
 # 重置 processing 状态的任务
 uv run scripts/reset_processing.py
 

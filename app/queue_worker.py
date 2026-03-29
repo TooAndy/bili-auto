@@ -52,39 +52,56 @@ def process_single_video(bvid: str):
             if subtitles:
                 logger.debug("[字幕] 获取成功，长度: %d", len(subtitles))
             else:
-                # 第2步：检查是否已下载过音频
-                audio_path = None
-                if video.has_audio and video.audio_path:
-                    # 检查音频文件是否还存在
+                # 第2步：检查是否已下载过视频或音频
+                media_path = None
+                media_type = None  # 'video' or 'audio'
+
+                # 优先检查视频
+                if video.has_video and video.video_path:
+                    if os.path.exists(video.video_path):
+                        logger.debug("[视频] 复用已有视频文件: %s", video.video_path)
+                        media_path = video.video_path
+                        media_type = "video"
+                    else:
+                        logger.warning("[视频] 视频文件不存在，重新下载: %s", video.video_path)
+                        video.has_video = False
+                        video.video_path = None
+
+                # 其次检查音频
+                if not media_path and video.has_audio and video.audio_path:
                     if os.path.exists(video.audio_path):
                         logger.debug("[音频] 复用已有音频文件: %s", video.audio_path)
-                        audio_path = video.audio_path
+                        media_path = video.audio_path
+                        media_type = "audio"
                     else:
                         logger.warning("[音频] 音频文件不存在，重新下载: %s", video.audio_path)
                         video.has_audio = False
                         video.audio_path = None
 
-                # 下载音频（如果需要）
-                if not audio_path:
-                    logger.debug("[Whisper] 开始下载音频...")
-                    try:
-                        audio_path = download_audio(bvid)
-                        video.has_audio = True
-                        video.audio_path = audio_path
-                        logger.debug("[Whisper] 音频下载完成: %s", audio_path)
-                    except Exception as e:
-                        logger.error("[Whisper] 音频下载失败: %s", e)
+                # 如果都没有，优先下载视频（用于批量下载场景）
+                if not media_path:
+                    # 检查 data/video 目录是否已有视频文件（可能是外部下载的）
+                    video_file = DATA_ROOT / "video" / f"{bvid}.mp4"
+                    if video_file.exists():
+                        logger.debug("[视频] 发现已有视频文件: %s", video_file)
+                        media_path = str(video_file)
+                        media_type = "video"
+                        video.has_video = True
+                        video.video_path = str(video_file)
+                    else:
+                        # 没有找到任何媒体文件，无法继续
+                        logger.warning("[媒体] 未找到视频或音频文件，跳过处理")
                         subtitles = ""
-                        audio_path = None
+                        media_path = None
 
                 # 用ASR转写
-                if audio_path:
-                    logger.debug("[Whisper] 开始识别...")
+                if media_path:
+                    logger.debug("[%s] 开始识别...", media_type)
                     try:
-                        subtitles = transcribe_audio(audio_path)
-                        logger.debug("[Whisper] 识别完成，长度: %d", len(subtitles))
+                        subtitles = transcribe_audio(media_path)
+                        logger.debug("[%s] 识别完成，长度: %d", media_type, len(subtitles))
                     except Exception as e:
-                        logger.error("[Whisper] 音频识别失败: %s", e)
+                        logger.error("[%s] 识别失败: %s", media_type, e)
                         subtitles = ""
 
         # 第3步：统一 LLM 处理（纠错 + 总结）
