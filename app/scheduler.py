@@ -1,14 +1,61 @@
 import schedule
 import time
 import json
+import asyncio
 from datetime import datetime
 from app.utils.logger import get_logger
 from app.models.database import get_db, Subscription, Video, Dynamic
 from app.modules.bilibili import fetch_channel_videos
 from app.modules.dynamic import DynamicFetcher
+from app.modules.bilibili_auth import get_auth_manager
 from config import Config
 
 logger = get_logger("scheduler")
+
+
+def check_and_refresh_cookie():
+    """
+    检查并刷新 Cookie（同步封装）
+
+    Returns:
+        如果刷新了返回新的 Cookie，否则返回 None
+    """
+    if not Config.BILIBILI_COOKIE:
+        logger.warning("未配置 BILIBILI_COOKIE，跳过 Cookie 刷新检查")
+        return None
+
+    auth = get_auth_manager()
+    refresh_token = auth.get_refresh_token()
+
+    if not refresh_token:
+        logger.info("未配置 refresh_token，跳过 Cookie 自动刷新")
+        logger.info("如需启用自动刷新，请运行: python scripts/set_refresh_token.py")
+        return None
+
+    logger.info("开始检查 Cookie 是否需要刷新...")
+
+    # 创建事件循环来运行异步代码
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    try:
+        new_cookie, refreshed = loop.run_until_complete(
+            auth.auto_refresh_if_needed(Config.BILIBILI_COOKIE)
+        )
+        if refreshed:
+            logger.info("Cookie 已刷新！")
+            # 更新 Config 中的 Cookie（当前进程）
+            Config.BILIBILI_COOKIE = new_cookie
+            return new_cookie
+        else:
+            logger.info("Cookie 无需刷新")
+            return None
+    except Exception as e:
+        logger.error(f"Cookie 刷新过程出错: {e}", exc_info=True)
+        return None
 
 
 def check_new_videos():

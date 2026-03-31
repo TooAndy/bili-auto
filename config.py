@@ -15,6 +15,12 @@ class Config:
     # B站
     BILIBILI_COOKIE = os.getenv("BILIBILI_COOKIE", "")
 
+    # B站 Cookie 自动刷新
+    # refresh_token 用于自动刷新 Cookie，从浏览器获取：
+    # 1. 登录B站后在 Console 运行: localStorage.getItem('ac_time_value')
+    # 2. 或从登录响应中获取
+    refresh_token = os.getenv("refresh_token", "")
+
     # LLM
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
     OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "")
