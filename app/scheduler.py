@@ -21,15 +21,14 @@ def check_and_refresh_cookie():
         如果刷新了返回新的 Cookie，否则返回 None
     """
     if not Config.BILIBILI_COOKIE:
-        logger.warning("未配置 BILIBILI_COOKIE，跳过 Cookie 刷新检查")
+        logger.debug("未配置 BILIBILI_COOKIE，跳过 Cookie 刷新检查")
         return None
 
     auth = get_auth_manager()
     refresh_token = auth.get_refresh_token()
 
     if not refresh_token:
-        logger.info("未配置 refresh_token，跳过 Cookie 自动刷新")
-        logger.info("如需启用自动刷新，请运行: python scripts/set_refresh_token.py")
+        logger.debug("未配置 refresh_token，跳过 Cookie 自动刷新")
         return None
 
     logger.info("开始检查 Cookie 是否需要刷新...")
@@ -51,7 +50,7 @@ def check_and_refresh_cookie():
             Config.BILIBILI_COOKIE = new_cookie
             return new_cookie
         else:
-            logger.info("Cookie 无需刷新")
+            logger.debug("Cookie 无需刷新")
             return None
     except Exception as e:
         logger.error(f"Cookie 刷新过程出错: {e}", exc_info=True)

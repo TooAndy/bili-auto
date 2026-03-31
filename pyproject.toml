@@ -14,6 +14,7 @@ dependencies = [
   "openai==2.30.0",
   "dashscope>=1.25.15",
   "pillow==12.1.1",
+  "pycryptodome==3.21.0",
   "pydantic==2.12.5",
   "python-dotenv==1.2.2",
   "python-telegram-bot==20.6",

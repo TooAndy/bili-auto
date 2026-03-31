@@ -18,3 +18,5 @@ data
 models
 .git_m*
 .DS_Store
+.playwright-cli
+.playwright

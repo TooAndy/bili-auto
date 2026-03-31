@@ -4,6 +4,7 @@ B站认证和Cookie管理模块
 
 实现B站Cookie自动刷新机制
 参考文档: https://socialsisteryi.github.io/bilibili-API-collect/docs/login/cookie_refresh.html
+参考文章: https://blog.csdn.net/gitblog_00169/article/details/152153957
 """
 
 import asyncio
@@ -11,12 +12,22 @@ import json
 import logging
 import os
 import time
+import binascii
 from pathlib import Path
 from typing import Optional, Tuple
 
 import aiohttp
 
 from app.utils.logger import get_logger
+
+# 尝试导入加密库
+try:
+    from Crypto.Cipher import PKCS1_OAEP
+    from Crypto.PublicKey import RSA
+    from Crypto.Hash import SHA256
+    HAS_CRYPTO = True
+except ImportError:
+    HAS_CRYPTO = False
 
 logger = get_logger("bilibili_auth")
 
@@ -26,12 +37,28 @@ class BilibiliAuth:
 
     # API端点
     CHECK_COOKIE_URL = "https://passport.bilibili.com/x/passport-login/web/cookie/info"
+    GET_REFRESH_CSRF_URL = "https://www.bilibili.com/correspond/1/{correspond_path}"
     REFRESH_COOKIE_URL = (
         "https://passport.bilibili.com/x/passport-login/web/cookie/refresh"
     )
     CONFIRM_REFRESH_URL = (
         "https://passport.bilibili.com/x/passport-login/web/confirm/refresh"
     )
+    # SSO 跨域登录端点（常用子域名）
+    SSO_URLS = [
+        "https://passport.bilibili.com/x/passport-login/sso/cookie",
+        "https://www.bilibili.com/x/passport-login/sso/cookie",
+        "https://space.bilibili.com/x/passport-login/sso/cookie",
+        "https://message.bilibili.com/x/passport-login/sso/cookie",
+    ]
+
+    # B站 RSA 公钥（用于生成 CorrespondPath）
+    BILIBILI_PUBLIC_KEY = """-----BEGIN PUBLIC KEY-----
+MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDLgd2OAkcGVtoE3ThUREbio0Eg
+Uc/prcajMKXvkCKFCWhJYJcLkcM2DKKcSeFpD/j6Boy538YXnR6VhcuUJOhH2x71
+nzPjfdTcqMz7djHum0qSZA0AyCBDABUqCrfNgCiJ00Ra7GmRj+YCK1NJEuewlb40
+JNrRuoEUXpabUzGB8QIDAQAB
+-----END PUBLIC KEY-----"""
 
     # 存储路径
     AUTH_DATA_PATH = Path("data/bilibili_auth.json")
@@ -223,15 +250,104 @@ class BilibiliAuth:
 
         return False, None
 
+    async def get_refresh_csrf(
+        self, correspond_path: str, cookie: str
+    ) -> Optional[str]:
+        """
+        获取 refresh_csrf
+
+        Args:
+            correspond_path: 生成的 CorrespondPath
+            cookie: 当前 Cookie
+
+        Returns:
+            refresh_csrf 字符串或 None
+        """
+        try:
+            url = self.GET_REFRESH_CSRF_URL.format(correspond_path=correspond_path)
+
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+                "Cookie": cookie,
+                "Referer": "https://www.bilibili.com/",
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers, timeout=10) as resp:
+                    if resp.status == 200:
+                        # 返回的是 HTML，需要从 <div id="1-name"> 中提取
+                        text = await resp.text()
+
+                        # 简单的字符串提取，找 <div id="1-name">...</div>
+                        marker_start = '<div id="1-name">'
+                        marker_end = "</div>"
+
+                        start_idx = text.find(marker_start)
+                        if start_idx != -1:
+                            start_idx += len(marker_start)
+                            end_idx = text.find(marker_end, start_idx)
+                            if end_idx != -1:
+                                refresh_csrf = text[start_idx:end_idx].strip()
+                                if refresh_csrf:
+                                    logger.info("获取 refresh_csrf 成功")
+                                    logger.debug(f"refresh_csrf: {refresh_csrf[:30]}...")
+                                    return refresh_csrf
+
+                        logger.warning(f"未能从 HTML 中提取 refresh_csrf")
+                        logger.debug(f"响应内容: {text[:300]}")
+                    else:
+                        logger.error(f"获取 refresh_csrf 失败，HTTP状态码: {resp.status}")
+
+        except Exception as e:
+            logger.error(f"获取 refresh_csrf 时出错: {e}", exc_info=True)
+
+        return None
+
+    async def sso_cross_domain_login(self, cookie: str) -> bool:
+        """
+        SSO 跨域登录，同步 Cookie 到各个子域名
+
+        Args:
+            cookie: 新 Cookie
+
+        Returns:
+            是否成功（至少一个成功即可）
+        """
+        success_count = 0
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+            "Cookie": cookie,
+        }
+
+        async with aiohttp.ClientSession() as session:
+            for sso_url in self.SSO_URLS:
+                try:
+                    async with session.get(sso_url, headers=headers, timeout=10) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            if data.get("code") == 0:
+                                success_count += 1
+                                logger.debug(f"SSO 登录成功: {sso_url}")
+                            else:
+                                logger.debug(f"SSO 登录返回非0: {sso_url}, code={data.get('code')}")
+                        else:
+                            logger.debug(f"SSO 登录 HTTP {resp.status}: {sso_url}")
+                except Exception as e:
+                    logger.debug(f"SSO 登录出错: {sso_url}, {e}")
+
+        logger.info(f"SSO 跨域登录完成: {success_count}/{len(self.SSO_URLS)} 成功")
+        return success_count > 0
+
     async def refresh_cookie(
-        self, old_cookie: str, correspond_path: str
+        self, old_cookie: str, refresh_csrf: str
     ) -> Optional[Tuple[str, str]]:
         """
         刷新Cookie
 
         Args:
             old_cookie: 旧Cookie
-            correspond_path: CorrespondPath（由时间戳生成）
+            refresh_csrf: 获取到的 refresh_csrf
 
         Returns:
             (新Cookie, 新refresh_token) 或 None
@@ -251,7 +367,7 @@ class BilibiliAuth:
             # 构造请求
             data = {
                 "csrf": csrf,
-                "refresh_csrf": correspond_path,
+                "refresh_csrf": refresh_csrf,
                 "refresh_token": refresh_token,
                 "source": "main_web",
             }
@@ -347,6 +463,13 @@ class BilibiliAuth:
             (新Cookie或原Cookie, 是否刷新成功)
         """
         try:
+            # 检查是否有 refresh_token，没有则直接返回
+            refresh_token = self.get_refresh_token()
+            if not refresh_token:
+                logger.debug("未配置 refresh_token，跳过 Cookie 自动刷新")
+                logger.debug("如需启用自动刷新，请运行: python scripts/set_refresh_token.py")
+                return current_cookie, False
+
             # 检查今天是否已经检查过
             last_check = self.auth_data.get("last_check_time", 0)
             current_time = time.time()
@@ -370,27 +493,39 @@ class BilibiliAuth:
             # 需要刷新
             logger.info("检测到Cookie需要刷新，开始刷新流程...")
 
-            # 生成CorrespondPath（简化版，实际应该使用wasm算法）
+            # 步骤1: 生成 CorrespondPath（RSA-OAEP 加密）
             correspond_path = self._generate_correspond_path(timestamp)
-
-            # 保存旧的refresh_token用于确认
-            old_refresh_token = self.get_refresh_token()
-            if not old_refresh_token:
-                logger.error("没有refresh_token，无法刷新")
+            if not correspond_path:
+                logger.error("生成 CorrespondPath 失败，无法继续刷新")
+                logger.info("提示：可能需要手动更新 Cookie")
                 return current_cookie, False
 
-            # 刷新Cookie
-            refresh_result = await self.refresh_cookie(current_cookie, correspond_path)
+            # 步骤2: 尝试获取 refresh_csrf，如果失败则降级使用 correspond_path
+            refresh_csrf = await self.get_refresh_csrf(correspond_path, current_cookie)
+            if not refresh_csrf:
+                logger.warning("获取 refresh_csrf 失败，尝试降级方案（直接使用 correspond_path）")
+                refresh_csrf = correspond_path
+
+            # 保存旧的refresh_token用于确认
+            old_refresh_token = refresh_token
+
+            # 步骤3: 刷新Cookie
+            refresh_result = await self.refresh_cookie(current_cookie, refresh_csrf)
             if not refresh_result:
                 logger.error("Cookie刷新失败")
+                logger.info("提示：refresh_token 可能已失效，需要重新获取")
                 return current_cookie, False
 
             new_cookie, new_refresh_token = refresh_result
 
-            # 确认刷新
+            # 步骤4: 确认刷新
             confirmed = await self.confirm_refresh(new_cookie, old_refresh_token)
             if not confirmed:
                 logger.warning("确认刷新失败，但Cookie可能已更新")
+
+            # 步骤5: SSO 跨域登录
+            logger.info("开始 SSO 跨域登录...")
+            await self.sso_cross_domain_login(new_cookie)
 
             # 更新refresh_token（同时保存到 .env 和 auth_data）
             self.set_refresh_token(new_refresh_token, save_to_env=True)
@@ -441,26 +576,41 @@ class BilibiliAuth:
         # 重新组装
         return "; ".join([f"{k}={v}" for k, v in cookie_dict.items()])
 
-    @staticmethod
-    def _generate_correspond_path(timestamp: Optional[int] = None) -> str:
+    def _generate_correspond_path(self, timestamp: Optional[int] = None) -> Optional[str]:
         """
-        生成CorrespondPath
-
-        注意：这是简化版本，完整实现需要使用B站的wasm算法
-        文档中的wasm文件：https://s1.hdslb.com/bfs/static/jinkela/long/wasm/wasm_rsa_encrypt_bg.wasm
+        生成 CorrespondPath（使用 RSA-OAEP 加密）
 
         Args:
             timestamp: 毫秒时间戳
 
         Returns:
-            CorrespondPath字符串
+            CorrespondPath 字符串或 None
         """
+        if not HAS_CRYPTO:
+            logger.error("缺少 pycryptodome 库，请安装: pip install pycryptodome")
+            return None
+
         if timestamp is None:
             timestamp = int(time.time() * 1000)
 
-        # 简化版本：使用时间戳的十六进制
-        # 实际应该调用wasm算法
-        return hex(timestamp)[2:]
+        try:
+            # 导入公钥
+            key = RSA.importKey(self.BILIBILI_PUBLIC_KEY)
+
+            # 使用 RSA-OAEP 加密，使用 SHA256
+            cipher = PKCS1_OAEP.new(key, SHA256)
+            message = f"refresh_{timestamp}".encode()
+            encrypted = cipher.encrypt(message)
+
+            # 转换为十六进制字符串
+            correspond_path = binascii.b2a_hex(encrypted).decode()
+
+            logger.debug(f"生成 CorrespondPath 成功: timestamp={timestamp}")
+            return correspond_path
+
+        except Exception as e:
+            logger.error(f"生成 CorrespondPath 失败: {e}", exc_info=True)
+            return None
 
 
 # 全局认证管理器实例
