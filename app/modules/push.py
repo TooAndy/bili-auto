@@ -1,49 +1,93 @@
 import json
 import requests
 from datetime import datetime
+from typing import Optional
 from app.utils.logger import get_logger
 from config import Config
 
 logger = get_logger("push")
 
+# 飞书 tenant_access_token 缓存
+_feishu_token_cache = None
+_feishu_token_expire_at = 0
 
-def push_content(content_data: dict, channels: list) -> bool:
+
+def get_feishu_tenant_access_token() -> Optional[str]:
     """
-    统一推送接口
-    用户说先不做消息推送，所以仅记录日志
-    
-    content_data: {
-        "type": "video" | "dynamic",
-        "title": "标题（视频）或动态文本",
-        "summary": "摘要（仅视频有）",
-        "key_points": [...],
-        "tags": [...],
-        "images": ["path1", "path2"],  # 本地图片路径
-        "image_urls": ["url1", "url2"],  # 图片URLs
-        "url": "B站链接",
-        "timestamp": "发布时间"
+    获取飞书 tenant_access_token（带缓存）
+
+    Returns:
+        str: access_token，失败返回 None
+    """
+    global _feishu_token_cache, _feishu_token_expire_at
+
+    now = datetime.now().timestamp()
+
+    # 如果 token 还在有效期内（提前5分钟过期），直接返回缓存
+    if _feishu_token_cache and now < _feishu_token_expire_at - 300:
+        return _feishu_token_cache
+
+    if not Config.FEISHU_APP_ID or not Config.FEISHU_APP_SECRET:
+        logger.warning("飞书 APP_ID 或 APP_SECRET 未配置")
+        return None
+
+    url = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
+    payload = {
+        "app_id": Config.FEISHU_APP_ID,
+        "app_secret": Config.FEISHU_APP_SECRET
     }
-    
-    channels: ["feishu", "telegram", "wechat"] (目前仅记录，不推送)
+
+    try:
+        resp = requests.post(url, json=payload, timeout=15)
+        data = resp.json()
+
+        if data.get("code") == 0:
+            _feishu_token_cache = data["tenant_access_token"]
+            _feishu_token_expire_at = now + data["expire"]
+            logger.debug("飞书 tenant_access_token 获取成功")
+            return _feishu_token_cache
+        else:
+            logger.error("飞书 tenant_access_token 获取失败: %s", data.get("msg"))
+            return None
+    except Exception as e:
+        logger.error("飞书 tenant_access_token 请求异常: %s", e)
+        return None
+
+
+def push_feishu_text(content: str) -> bool:
     """
-    content_type = content_data.get("type", "unknown")
-    
-    if content_type == "video":
-        logger.info("[推送占位符] 视频: %s | 标题: %s | 标签: %s",
-                    content_data.get("url", ""),
-                    content_data.get("title", "")[:50],
-                    content_data.get("tags", []))
-    elif content_type == "dynamic":
-        logger.info("[推送占位符] 动态: %s | 内容: %s | 图片: %d张",
-                    content_data.get("url", ""),
-                    content_data.get("text", "")[:50],
-                    len(content_data.get("images", [])))
-    
-    logger.debug("推送渠道配置: %s", channels)
-    return True
+    推送纯文本消息到飞书（优先使用应用模式，回退到 webhook）
+
+    Args:
+        content: 文本内容
+
+    Returns:
+        bool: 是否成功
+    """
+    # 优先使用应用模式
+    if Config.FEISHU_APP_ID and Config.FEISHU_APP_SECRET and Config.FEISHU_RECEIVE_ID:
+        if push_feishu_text_by_app(content):
+            return True
+
+    # 回退到 webhook 模式
+    if Config.FEISHU_WEBHOOK:
+        return push_feishu_text_by_webhook(Config.FEISHU_WEBHOOK, content)
+
+    logger.debug("飞书未配置，跳过推送")
+    return False
 
 
-def push_feishu_text(webhook_url: str, content: str) -> bool:
+def push_feishu_text_by_webhook(webhook_url: str, content: str) -> bool:
+    """
+    通过 webhook 推送纯文本消息到飞书
+
+    Args:
+        webhook_url: 飞书 webhook URL
+        content: 文本内容
+
+    Returns:
+        bool: 是否成功
+    """
     payload = {
         "msg_type": "text",
         "content": {"text": content}
@@ -51,30 +95,113 @@ def push_feishu_text(webhook_url: str, content: str) -> bool:
     resp = requests.post(webhook_url, json=payload, timeout=15)
     if resp.status_code == 200 and resp.json().get("StatusCode") in (0, 200):
         return True
-    logger.error("飞书推送失败: %s", resp.text)
+    logger.error("飞书 webhook 推送失败: %s", resp.text)
     return False
 
 
-def push_feishu_dynamic_simple(webhook_url: str, dynamic_data: dict) -> bool:
-    text = dynamic_data.get("text", "")
-    images_text = ""
-    for i, url in enumerate(dynamic_data.get("image_urls", [])[:3]):
-        images_text += f"\n![图{i+1}]({url})"
+def push_feishu_text_by_app(content: str) -> bool:
+    """
+    通过飞书应用推送纯文本消息
 
-    msg = f"📝 动态更新\n\n{text}\n{images_text}\n\n⏰ {dynamic_data.get('pub_time')}\n{dynamic_data.get('url', '')}"
-    return push_feishu_text(webhook_url, msg)
+    Args:
+        content: 文本内容
+
+    Returns:
+        bool: 是否成功
+    """
+    token = get_feishu_tenant_access_token()
+    if not token:
+        return False
+
+    # receive_id_type 需要放在查询字符串中
+    url = f"https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type={Config.FEISHU_RECEIVE_ID_TYPE}"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json; charset=utf-8"
+    }
+
+    content_json = json.dumps({"text": content}, ensure_ascii=False)
+    payload_dict = {
+        "receive_id": Config.FEISHU_RECEIVE_ID,
+        "msg_type": "text",
+        "content": content_json
+    }
+
+    try:
+        resp = requests.post(url, headers=headers, json=payload_dict, timeout=15)
+        data = resp.json()
+
+        if data.get("code") == 0:
+            logger.debug("飞书应用推送成功")
+            return True
+        else:
+            logger.error("飞书应用推送失败: code=%s, msg=%s", data.get("code"), data.get("msg"))
+            return False
+    except Exception as e:
+        logger.error("飞书应用推送异常: %s", e, exc_info=True)
+        return False
 
 
-def push_telegram_dynamic(bot_token: str, chat_id: str, dynamic_data: dict) -> bool:
-    """占位符实现（用户说先不做推送）"""
-    logger.info("[推送占位符] Telegram动态: %s", dynamic_data.get("text", "")[:50])
+def push_feishu_video(content_data: dict) -> bool:
+    """
+    推送视频到飞书
+
+    Args:
+        content_data: 视频内容数据
+
+    Returns:
+        bool: 是否成功
+    """
+    title = content_data.get("title", "无标题")
+    summary = content_data.get("summary", "")
+    url = content_data.get("url", "")
+    tags = content_data.get("tags", [])
+
+    text = f"📺 新视频\n\n{title}\n\n"
+    if summary:
+        text += f"{summary}\n\n"
+    if tags:
+        text += f"标签: {' '.join([f'#{t}' for t in tags])}\n\n"
+    text += f"🔗 {url}"
+
+    return push_feishu_text(text)
+
+
+def push_feishu_dynamic(content_data: dict) -> bool:
+    """
+    推送动态到飞书
+
+    Args:
+        content_data: 动态内容数据
+
+    Returns:
+        bool: 是否成功
+    """
+    text = content_data.get("text", "")
+    url = content_data.get("url", "")
+    pub_time = content_data.get("pub_time", "")
+
+    # 截断过长的文本
+    display_text = text[:500]
+    if len(text) > 500:
+        display_text += "..."
+
+    msg = f"📝 新动态\n\n{display_text}\n\n"
+    if pub_time:
+        msg += f"⏰ {pub_time}\n"
+    msg += f"🔗 {url}"
+
+    return push_feishu_text(msg)
+
+
+def push_telegram_dynamic(bot_token: str, chat_id: str, content_data: dict) -> bool:
+    """占位符实现"""
+    logger.info("[推送占位符] Telegram: %s", content_data.get("title", content_data.get("text", ""))[:50])
     return True
 
-    bot.send_message(chat_id=chat_id, text=text, parse_mode='HTML')
-    return True
 
-
-def push_wechat_corporate(corp_id: str, corp_secret: str, agent_id: int, to_user, dynamic_data: dict) -> bool:
+def push_wechat_corporate(corp_id: str, corp_secret: str, agent_id: int, to_user: str, content_data: dict) -> bool:
+    """微信企业号推送（保持原有代码）"""
     # 获取 token
     token_url = "https://qyapi.weixin.qq.com/cgi-bin/gettoken"
     token_params = {"corpid": corp_id, "corpsecret": corp_secret}
@@ -92,10 +219,10 @@ def push_wechat_corporate(corp_id: str, corp_secret: str, agent_id: int, to_user
         "news": {
             "articles": [
                 {
-                    "title": dynamic_data.get("text", "")[:64],
-                    "description": dynamic_data.get("text", "")[:200],
-                    "url": dynamic_data.get("url", ""),
-                    "picurl": dynamic_data.get("image_urls", [""])[0] if dynamic_data.get("image_urls") else ""
+                    "title": content_data.get("title", content_data.get("text", ""))[:64],
+                    "description": content_data.get("summary", content_data.get("text", ""))[:200],
+                    "url": content_data.get("url", ""),
+                    "picurl": content_data.get("image_urls", [""])[0] if content_data.get("image_urls") else ""
                 }
             ]
         }
@@ -107,24 +234,39 @@ def push_wechat_corporate(corp_id: str, corp_secret: str, agent_id: int, to_user
     return resp.ok and resp.json().get("errcode") == 0
 
 
-def push_content(content_data: dict, channels: list):
-    if "feishu" in channels and Config.FEISHU_WEBHOOK:
+def push_content(content_data: dict, channels: list) -> bool:
+    """
+    统一推送接口
+
+    content_data: {
+        "type": "video" | "dynamic",
+        "title": "标题（视频）或动态文本",
+        "summary": "摘要（仅视频有）",
+        "key_points": [...],
+        "tags": [...],
+        "images": ["path1", "path2"],  # 本地图片路径
+        "image_urls": ["url1", "url2"],  # 图片URLs
+        "url": "B站链接",
+        "timestamp": "发布时间戳（视频）",
+        "pub_time": "发布时间字符串（动态）"
+    }
+
+    channels: ["feishu", "telegram", "wechat"]
+    """
+    content_type = content_data.get("type", "unknown")
+
+    if "feishu" in channels:
         try:
-            if content_data.get("type") == "dynamic":
-                push_feishu_dynamic_simple(Config.FEISHU_WEBHOOK, content_data)
-            else:
-                push_feishu_text(Config.FEISHU_WEBHOOK, content_data.get("summary", ""))
+            if content_type == "video":
+                push_feishu_video(content_data)
+            elif content_type == "dynamic":
+                push_feishu_dynamic(content_data)
         except Exception as e:
             logger.error("飞书推送异常: %s", e)
 
     if "telegram" in channels and Config.TELEGRAM_TOKEN and Config.TELEGRAM_CHAT_ID:
         try:
-            if content_data.get("type") == "dynamic":
-                push_telegram_dynamic(Config.TELEGRAM_TOKEN, Config.TELEGRAM_CHAT_ID, content_data)
-            else:
-                from telegram import Bot
-                bot = Bot(token=Config.TELEGRAM_TOKEN)
-                bot.send_message(chat_id=Config.TELEGRAM_CHAT_ID, text=content_data.get("summary", ""), parse_mode='HTML')
+            push_telegram_dynamic(Config.TELEGRAM_TOKEN, Config.TELEGRAM_CHAT_ID, content_data)
         except Exception as e:
             logger.error("Telegram 推送异常: %s", e)
 
@@ -139,5 +281,17 @@ def push_content(content_data: dict, channels: list):
             )
         except Exception as e:
             logger.error("微信企业号推送异常: %s", e)
+
+    # 记录日志
+    if content_type == "video":
+        logger.info("[推送] 视频: %s | 标题: %s | 标签: %s",
+                    content_data.get("url", ""),
+                    content_data.get("title", "")[:50],
+                    content_data.get("tags", []))
+    elif content_type == "dynamic":
+        logger.info("[推送] 动态: %s | 内容: %s | 图片: %d张",
+                    content_data.get("url", ""),
+                    content_data.get("text", "")[:50],
+                    len(content_data.get("images", [])))
 
     return True

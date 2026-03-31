@@ -28,6 +28,10 @@ class Config:
 
     # 推送
     FEISHU_WEBHOOK = os.getenv("FEISHU_WEBHOOK", "")
+    FEISHU_APP_ID = os.getenv("FEISHU_APP_ID", "")
+    FEISHU_APP_SECRET = os.getenv("FEISHU_APP_SECRET", "")
+    FEISHU_RECEIVE_ID = os.getenv("FEISHU_RECEIVE_ID", "")
+    FEISHU_RECEIVE_ID_TYPE = os.getenv("FEISHU_RECEIVE_ID_TYPE", "open_id")
     TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
     TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 

@@ -223,7 +223,7 @@ def process_single_video(bvid: str):
             "url": f"https://www.bilibili.com/video/{bvid}",
             "duration_minutes": summary_data.get("duration_minutes", 0),
             "timestamp": video.pub_time
-        }, [])  # 空数组，因为先不推送
+        }, ["feishu"])
 
         video.status = "done"
         db.commit()
@@ -278,7 +278,7 @@ def process_single_dynamic(dynamic_id: str):
 
         logger.debug("[动态数据] 文本: %d字, 图片: %d张", len(dynamic.text or ""), len(image_paths))
 
-        # 推送（当前为占位符）
+        # 推送
         push_content({
             "type": "dynamic",
             "text": dynamic.text,
@@ -286,7 +286,7 @@ def process_single_dynamic(dynamic_id: str):
             "image_urls": image_urls,
             "pub_time": str(dynamic.pub_time) if dynamic.pub_time else "",
             "url": f"https://www.bilibili.com/opus/{dynamic.dynamic_id}"
-        }, [])  # 空数组，因为先不推送
+        }, ["feishu"])
 
         dynamic.status = "sent"
         dynamic.pushed_at = datetime.utcnow()
