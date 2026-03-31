@@ -87,7 +87,7 @@ def get_video_info(bvid: str) -> dict:
         return None
 
 
-def download_single_videos(bvids: list, quality: str, force: bool):
+def download_single_videos(bvids: list, quality: str, force: bool, skip_queue: bool = False):
     """下载单个或多个视频"""
     db = get_db()
     try:
@@ -135,7 +135,7 @@ def download_single_videos(bvids: list, quality: str, force: bool):
                         print(f"[续传] 视频文件缺失，重新下载")
                     else:
                         print(f"[更新] 强制重新下载")
-                    existing.status = "pending"
+                    existing.status = "done" if skip_queue else "pending"
                     existing.attempt_count = 0
                     existing.last_error = None
                 else:
@@ -148,10 +148,11 @@ def download_single_videos(bvids: list, quality: str, force: bool):
                     title=title,
                     mid=str(mid),
                     pub_time=pub_time,
-                    status="pending"
+                    status="done" if skip_queue else "pending"
                 )
                 db.add(new_video)
-                safe_commit(db)  # 立即提交，让 queue_worker 能看到
+                if not skip_queue:
+                    safe_commit(db)  # 立即提交，让 queue_worker 能看到
 
             # 3. 下载视频
             try:
@@ -168,6 +169,8 @@ def download_single_videos(bvids: list, quality: str, force: bool):
                 if vid_obj:
                     vid_obj.has_video = True
                     vid_obj.video_path = video_path
+                    if skip_queue:
+                        vid_obj.status = "done"
 
                 safe_commit(db)
                 print(f"✓ 下载完成: {Path(video_path).name}")
@@ -177,7 +180,10 @@ def download_single_videos(bvids: list, quality: str, force: bool):
                 print(f"❌ 下载失败: {e}")
 
         print(f"\n{'='*50}")
-        print("下载完成！queue_worker 将自动处理视频")
+        if skip_queue:
+            print("下载完成！视频已跳过处理队列")
+        else:
+            print("下载完成！queue_worker 将自动处理视频")
         print(f"{'='*50}")
 
     except Exception as e:
@@ -188,7 +194,7 @@ def download_single_videos(bvids: list, quality: str, force: bool):
 
 
 def download_batch(mid: str, start_date: int = None, end_date: int = None,
-                   quality: str = "high", force: bool = False):
+                   quality: str = "high", force: bool = False, skip_queue: bool = False):
     """批量下载 UP主视频"""
     db = get_db()
     try:
@@ -240,7 +246,7 @@ def download_batch(mid: str, start_date: int = None, end_date: int = None,
                         print(f"[续传] {bvid} | 视频文件缺失")
                     else:
                         print(f"[更新] {bvid} | {title[:50]}...")
-                    existing.status = "pending"
+                    existing.status = "done" if skip_queue else "pending"
                     existing.attempt_count = 0
                     existing.last_error = None
                     updated_count += 1
@@ -255,11 +261,12 @@ def download_batch(mid: str, start_date: int = None, end_date: int = None,
                     title=title,
                     mid=str(mid),
                     pub_time=pubdate,
-                    status="pending"
+                    status="done" if skip_queue else "pending"
                 )
                 db.add(new_video)
                 added_count += 1
-                safe_commit(db)  # 立即提交，让 queue_worker 能看到
+                if not skip_queue:
+                    safe_commit(db)  # 立即提交，让 queue_worker 能看到
 
             # 下载视频
             try:
@@ -275,6 +282,8 @@ def download_batch(mid: str, start_date: int = None, end_date: int = None,
                 if vid_obj:
                     vid_obj.has_video = True
                     vid_obj.video_path = actual_video_path
+                    if skip_queue:
+                        vid_obj.status = "done"
 
                 safe_commit(db)  # 立即提交更新
                 print(f"  ✓ 下载完成")
@@ -286,7 +295,10 @@ def download_batch(mid: str, start_date: int = None, end_date: int = None,
         print(f"\n{'='*50}")
         print(f"完成！新增: {added_count}, 更新: {updated_count}, 跳过: {skipped_count}")
         print(f"{'='*50}")
-        print("提示: queue_worker 将自动处理视频")
+        if skip_queue:
+            print("提示: 视频已跳过处理队列")
+        else:
+            print("提示: queue_worker 将自动处理视频")
 
     except Exception as e:
         logger.error("批量下载失败: %s", e, exc_info=True)
@@ -327,6 +339,9 @@ def main():
 
   # 强制重新下载
   %(prog)s BV1C8ZiBDEdx --force
+
+  # 仅下载，不添加到处理队列
+  %(prog)s BV1C8ZiBDEdx --skip-queue
         """
     )
 
@@ -347,6 +362,8 @@ def main():
                        help="强制重新下载已存在的视频")
     parser.add_argument("--yes", "-y", action="store_true",
                        help="批量下载时跳过确认")
+    parser.add_argument("--skip-queue", "-s", action="store_true",
+                       help="仅下载视频，不添加到处理队列")
 
     args = parser.parse_args()
 
@@ -368,7 +385,7 @@ def main():
         else:
             print(f"  范围: {args.start_date} - {args.end_date}")
 
-        download_batch(mid, args.start_date, args.end_date, args.quality, args.force)
+        download_batch(mid, args.start_date, args.end_date, args.quality, args.force, args.skip_queue)
 
     else:
         # 单视频下载模式：支持多个视频 ID
@@ -387,7 +404,7 @@ def main():
             parser.error("没有找到有效的视频 ID (应以 BV 开头)")
 
         print(f"单视频下载模式: {len(bvids)} 个视频")
-        download_single_videos(bvids, args.quality, args.force)
+        download_single_videos(bvids, args.quality, args.force, args.skip_queue)
 
 
 if __name__ == "__main__":
