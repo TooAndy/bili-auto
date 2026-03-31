@@ -25,51 +25,15 @@ except Exception as e:
 
 
 def _load_process_prompt() -> str:
-    """加载处理 Prompt（纠错 + 总结一起）"""
-    return """你是一位精通港股市场、财经术语和网络口语的资深内容分析师。
-
-任务：对用户提供的语音转文字记录进行处理，直接输出以下三个部分内容，无需任何额外解释或开场白。
-
-处理要求：
-
-1. 文本纠错与优化：
-   - 将语音识别错误、口语化、不规范的表达，准确修正为正确的股票名称、公司简称、财经术语和流畅的书面语。
-   - 纠正后, 应该为通顺、专业、清晰的文本，便于后续分析和总结。
-   - 修正范围包括但不限于：
-     - 公司/股票名（如："闷牛" -> "蒙牛乳业/蒙牛"；"达市" -> "达势股份/达美乐中国"）。
-     - 专业术语（如："古都古西律" -> "股息派发率"；"踢" -> "做T"）。
-     - 数字/时间（如："二五年" -> "2025年"）。
-     - 口语/逻辑补全（如："多差不多了" -> "都差不多了"）。
-
-2. 内容总结：
-   - summary: 一句话核心观点，50-100字
-   - details: 
-        1. 基于纠正后的清晰文本，用结构化大纲概括核心内容，并尽量详细的描述UP主的复盘或者选股思路
-        2. 至少应涵盖：整体市况与心态、核心投资理念、对每只重点股票的分析与操作、后续计划、投资策略、反思和教训、总结展望等部分
-        3. **每一部分都要尽可能的详细**, **不能漏掉**任何一个重点股票的分析与操作细节，不能漏掉UP主的任何一个投资策略和投资理念
-        4. 使用 markdown 格式，便于后续展示
-   - key_points: 数组，3-5个关键要点，每个30-50字
-   - tags: 数组，最多5个标签，要有区分度
-   - insights: 1-2条有价值的洞察或拓展思考
-
-最终输出格式：
-请严格且仅输出以下两个部分，以"---"分隔。
-
-【纠正后文本】
-[这里是纠正、优化后的完整通顺文本]
-
----
-
-【内容总结】
-{
-  "summary": "一句话核心观点",
-  "details": "详细总结内容, 应涵盖：整体市况与心态、对每只重点股票的分析与操作、后续计划、投资策略总结等关键部分。",
-  "key_points": ["要点1", "要点2", "要点3"],
-  "tags": ["标签1", "标签2"],
-  "insights": "洞察内容"
-}
-
-请开始处理。"""
+    """加载处理 Prompt（从 docs/prompt.md 读取）"""
+    prompt_path = Path(__file__).parent.parent.parent / "docs" / "prompt.md"
+    try:
+        with open(prompt_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        logger.error("加载 prompt.md 失败: %s", e)
+        # 返回一个简单的备用 prompt
+        return "你是一个专业的内容处理助手，请将输入文本处理为结构化JSON格式。"
 
 
 DEFAULT_PROCESS_PROMPT = _load_process_prompt()
@@ -96,7 +60,7 @@ def process_text(
             "summary": "摘要",
             "details": "详细总结内容",
             "key_points": [],
-            "tags": [],
+            "stocks": [],
             "insights": "",
             "success": True/False
         }
@@ -110,7 +74,7 @@ def process_text(
             "summary": "",
             "details": "",
             "key_points": [],
-            "tags": [],
+            "stocks": [],
             "insights": "",
             "success": False
         }
@@ -137,8 +101,8 @@ def process_text(
                 {"role": "user", "content": user_prompt}
             ],
             temperature=0.3,
-            max_tokens=12000,
-            timeout=120
+            max_tokens=120000,
+            timeout=1200
         )
 
         response_text = response.choices[0].message.content.strip()
@@ -160,38 +124,24 @@ def process_text(
 
 
 def _parse_process_response(text: str, raw_text: str) -> dict:
-    """解析处理响应"""
-    parts = text.split("---")
-
+    """解析处理响应（新格式：直接返回 JSON）"""
     corrected_text = raw_text
     summary_data = {
         "summary": "",
         "details": "",
         "key_points": [],
-        "tags": [],
+        "stocks": [],
         "insights": ""
     }
 
-    if len(parts) >= 2:
-        # 第一部分：纠正后文本
-        part1 = parts[0].strip()
-        if "【纠正后文本】" in part1:
-            extracted = part1.split("【纠正后文本】")[-1].strip()
-            if len(extracted) > len(raw_text) * 0.5:
-                corrected_text = extracted
-
-        # 第二部分：总结
-        part2 = "---".join(parts[1:]).strip()
-        if "【内容总结】" in part2:
-            json_str = part2.split("【内容总结】")[-1].strip()
-            # 提取 JSON
-            json_match = re.search(r'\{.*\}', json_str, re.DOTALL)
-            if json_match:
-                try:
-                    parsed = json.loads(json_match.group())
-                    summary_data.update(parsed)
-                except json.JSONDecodeError:
-                    pass
+    # 新格式：直接提取 JSON
+    json_match = re.search(r'\{.*\}', text, re.DOTALL)
+    if json_match:
+        try:
+            parsed = json.loads(json_match.group())
+            summary_data.update(parsed)
+        except json.JSONDecodeError:
+            pass
 
     # 规范化数据
     summary = str(summary_data.get("summary", "")).strip()[:200]
@@ -202,10 +152,10 @@ def _parse_process_response(text: str, raw_text: str) -> dict:
         key_points = [str(key_points)]
     key_points = [str(p).strip() for p in key_points[:5] if str(p).strip()]
 
-    tags = summary_data.get("tags", [])
-    if not isinstance(tags, list):
-        tags = [str(tags)]
-    tags = [str(t).strip() for t in tags[:5] if str(t).strip()]
+    stocks = summary_data.get("stocks", [])
+    if not isinstance(stocks, list):
+        stocks = [str(stocks)]
+    stocks = [str(s).strip() for s in stocks[:10] if str(s).strip()]
 
     insights_val = summary_data.get("insights", "")
     if isinstance(insights_val, list):
@@ -218,7 +168,8 @@ def _parse_process_response(text: str, raw_text: str) -> dict:
         "summary": summary,
         "details": details,
         "key_points": key_points,
-        "tags": tags,
+        "stocks": stocks,
+        "tags": [],  # 保持兼容，返回空 tags
         "insights": insights
     }
 
@@ -263,6 +214,7 @@ def _process_local(raw_text: str, video_title: str, duration: int) -> dict:
         "summary": summary,
         "details": "",
         "key_points": key_points[:5],
+        "stocks": [],
         "tags": tags,
         "insights": "此总结由本地简易算法生成，可启用 OPENAI_API_KEY 获得更高质量的分析。",
         "success": False

@@ -143,11 +143,32 @@ def process_single_video(bvid: str):
                             video.audio_path = str(paths["audio"].relative_to(project_root))
                             logger.debug("[音频] 已迁移到新路径: %s", paths["audio"])
 
-                # 如果都没有，无法继续
+                # 如果都没有，下载音频
                 if not media_path:
-                    logger.warning("[媒体] 未找到视频或音频文件，跳过处理")
-                    subtitles = ""
-                    media_path = None
+                    logger.info("[媒体] 未找到视频或音频文件，开始下载音频...")
+                    try:
+                        from app.modules.downloader import download_audio_new
+                        audio_file = download_audio_new(
+                            bvid=bvid,
+                            mid=video.mid,
+                            title=video.title,
+                            pub_time=video.pub_time,
+                            uploader_name=uploader_name
+                        )
+                        if audio_file and Path(audio_file).exists():
+                            media_path = audio_file
+                            media_type = "audio"
+                            video.has_audio = True
+                            video.audio_path = str(Path(audio_file).relative_to(project_root))
+                            logger.info("[音频] 下载成功: %s", audio_file)
+                        else:
+                            logger.warning("[音频] 下载失败或文件不存在")
+                            subtitles = ""
+                            media_path = None
+                    except Exception as e:
+                        logger.error("[音频] 下载失败: %s", e)
+                        subtitles = ""
+                        media_path = None
 
                 # 用ASR转写
                 if media_path:
@@ -173,6 +194,7 @@ def process_single_video(bvid: str):
                 "details": process_result.get("details", ""),
                 "key_points": process_result.get("key_points", []),
                 "tags": process_result.get("tags", []),
+                "stocks": process_result.get("stocks", []),
                 "insights": process_result.get("insights", ""),
                 "duration_minutes": 0
             }
@@ -205,6 +227,7 @@ def process_single_video(bvid: str):
                 "details": "",
                 "key_points": [],
                 "tags": [],
+                "stocks": [],
                 "insights": "",
                 "duration_minutes": 0
             }
@@ -219,6 +242,7 @@ def process_single_video(bvid: str):
             "details": summary_data.get("details", ""),
             "key_points": summary_data.get("key_points", []),
             "tags": summary_data.get("tags", []),
+            "stocks": summary_data.get("stocks", []),
             "insights": summary_data.get("insights", ""),
             "url": f"https://www.bilibili.com/video/{bvid}",
             "duration_minutes": summary_data.get("duration_minutes", 0),
