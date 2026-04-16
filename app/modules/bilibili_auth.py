@@ -384,19 +384,43 @@ JNrRuoEUXpabUzGB8QIDAQAB
                 ) as resp:
                     if resp.status == 200:
                         result = await resp.json()
+
+                        # 从响应头中获取新Cookie
+                        new_cookie = self._merge_cookies(old_cookie, resp.cookies)
+                        cookie_changed = new_cookie != old_cookie
+                        logger.debug(f"Cookie变更检查: old={old_cookie[:50]}..., new={new_cookie[:50]}..., changed={cookie_changed}")
+
+                        # 检查响应体中是否也有 cookie 信息（B站有时在 body 中返回）
+                        response_data = result.get("data", {})
+                        if isinstance(response_data, dict):
+                            # 某些 B站 API 会在 data 中返回新的 cookie 字符串
+                            resp_cookie = response_data.get("cookie")
+                            if resp_cookie and isinstance(resp_cookie, str):
+                                # 合并响应体中的 cookie
+                                resp_cookie_dict = self.parse_cookie_to_dict(resp_cookie)
+                                if resp_cookie_dict:
+                                    for k, v in resp_cookie_dict.items():
+                                        old_cookie_dict = self.parse_cookie_to_dict(old_cookie)
+                                        old_cookie_dict[k] = v
+                                    new_cookie = self.build_cookie_from_dict(old_cookie_dict)
+                                    cookie_changed = new_cookie != old_cookie
+
                         if result.get("code") == 0:
-                            data = result.get("data", {})
-                            new_refresh_token = data.get("refresh_token")
-
-                            # 从响应头中获取新Cookie
-                            new_cookie = self._merge_cookies(old_cookie, resp.cookies)
-
+                            new_refresh_token = response_data.get("refresh_token")
                             logger.info("Cookie刷新成功")
                             return new_cookie, new_refresh_token
                         else:
-                            logger.error(
-                                f"刷新Cookie失败: {result.get('message')}"
-                            )
+                            # B站有时返回错误但 cookie 可能已更新
+                            if new_cookie and new_cookie != old_cookie:
+                                logger.warning(
+                                    f"刷新Cookie返回错误但Cookie可能已更新: {result.get('message')}"
+                                )
+                                new_refresh_token = response_data.get("refresh_token")
+                                return new_cookie, new_refresh_token
+                            else:
+                                logger.error(
+                                    f"刷新Cookie失败: {result.get('message')}"
+                                )
                     else:
                         logger.error(f"刷新Cookie失败，HTTP状态码: {resp.status}")
 
@@ -517,6 +541,7 @@ JNrRuoEUXpabUzGB8QIDAQAB
                 return current_cookie, False
 
             new_cookie, new_refresh_token = refresh_result
+            logger.info(f"Cookie刷新完成: cookie_changed={new_cookie != current_cookie}, new_refresh_token={'有' if new_refresh_token else '无'}")
 
             # 步骤4: 确认刷新
             confirmed = await self.confirm_refresh(new_cookie, old_refresh_token)
@@ -527,8 +552,9 @@ JNrRuoEUXpabUzGB8QIDAQAB
             logger.info("开始 SSO 跨域登录...")
             await self.sso_cross_domain_login(new_cookie)
 
-            # 更新refresh_token（同时保存到 .env 和 auth_data）
-            self.set_refresh_token(new_refresh_token, save_to_env=True)
+            # 更新refresh_token（仅在新 token 有效时保存）
+            if new_refresh_token:
+                self.set_refresh_token(new_refresh_token, save_to_env=True)
 
             # 解析新Cookie并更新到 .env
             cookie_dict = self.parse_cookie_to_dict(new_cookie)
