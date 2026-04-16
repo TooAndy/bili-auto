@@ -157,6 +157,7 @@ def push_feishu_video(content_data: dict) -> bool:
     url = content_data.get("url", "")
     tags = content_data.get("tags", [])
     stocks = content_data.get("stocks", [])
+    doc_url = content_data.get("doc_url", "")
 
     text = f"📺 新视频\n\n{title}\n\n"
     if summary:
@@ -165,7 +166,9 @@ def push_feishu_video(content_data: dict) -> bool:
         text += f"📈 涉及股票: {'、'.join(stocks)}\n\n"
     if tags:
         text += f"标签: {' '.join([f'#{t}' for t in tags])}\n\n"
-    text += f"🔗 {url}"
+    text += f"🔗 原视频: {url}"
+    if doc_url:
+        text += f"\n📄 详细总结: {doc_url}"
 
     return push_feishu_text(text)
 

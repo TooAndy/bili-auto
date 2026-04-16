@@ -50,6 +50,7 @@ class Video(Base):
     attempt_count = Column(Integer, default=0)  # 处理尝试次数
     last_error = Column(Text, nullable=True)  # 最后错误信息
     summary_json = Column(Text, nullable=True)  # 总结结果JSON
+    doc_url = Column(String, nullable=True)  # 飞书文档链接
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

@@ -32,6 +32,10 @@ class Config:
     FEISHU_APP_SECRET = os.getenv("FEISHU_APP_SECRET", "")
     FEISHU_RECEIVE_ID = os.getenv("FEISHU_RECEIVE_ID", "")
     FEISHU_RECEIVE_ID_TYPE = os.getenv("FEISHU_RECEIVE_ID_TYPE", "open_id")
+    # 飞书文档（用于保存 summary.md
+    FEISHU_DOCS_ENABLED = os.getenv("FEISHU_DOCS_ENABLED", "false").lower() == "true"
+    FEISHU_DOCS_FOLDER_TOKEN = os.getenv("FEISHU_DOCS_FOLDER_TOKEN", "")
+    FEISHU_DOCS_SPACE_ID = os.getenv("FEISHU_DOCS_SPACE_ID", "")
     TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
     TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 

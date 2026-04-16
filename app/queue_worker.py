@@ -207,19 +207,38 @@ def process_single_video(bvid: str):
                 logger.debug("[保存] 文本已保存: %s", paths["transcript"])
 
             # 保存 summary 到新路径
-            if summary_data.get("details") and not paths["summary"].exists():
-                md_content = f"# {video.title}\n\n"
-                md_content += f"**URL**: https://www.bilibili.com/video/{bvid}\n\n"
-                md_content += f"**UP主**: {uploader_name}\n\n"
-                if video.pub_time:
-                    pub_time_str = datetime.fromtimestamp(video.pub_time).strftime("%Y-%m-%d %H:%M:%S")
-                    md_content += f"**发布时间**: {pub_time_str}\n\n"
-                else:
-                    md_content += "**发布时间**: 未知\n\n"
-                md_content += "---\n\n"
-                md_content += summary_data["details"]
+            md_content = f"# {video.title}\n\n"
+            md_content += f"**URL**: https://www.bilibili.com/video/{bvid}\n\n"
+            md_content += f"**UP主**: {uploader_name}\n\n"
+            if video.pub_time:
+                pub_time_str = datetime.fromtimestamp(video.pub_time).strftime("%Y-%m-%d %H:%M:%S")
+                md_content += f"**发布时间**: {pub_time_str}\n\n"
+            else:
+                md_content += "**发布时间**: 未知\n\n"
+            md_content += "---\n\n"
+            md_content += summary_data["details"]
+
+            if not paths["summary"].exists():
                 paths["summary"].write_text(md_content, "utf-8")
                 logger.debug("[保存] 详情已保存: %s", paths["summary"])
+
+            # 上传到飞书文档
+            doc_url = None
+            try:
+                from app.modules.feishu_docs import push_video_summary_to_doc
+                doc_result = push_video_summary_to_doc(
+                    title=video.title,
+                    markdown_content=md_content,
+                    bvid=bvid,
+                    uploader_name=uploader_name
+                )
+                if doc_result:
+                    doc_url = doc_result.get("url")
+                    video.doc_url = doc_url
+                    logger.info("[飞书文档] 创建成功: %s", doc_url)
+            except Exception as e:
+                logger.warning("[飞书文档] 创建失败: %s", e)
+
         else:
             logger.warning("[LLM] 无字幕和音频，跳过处理")
             summary_data = {
@@ -232,6 +251,7 @@ def process_single_video(bvid: str):
                 "duration_minutes": 0
             }
             video.summary_json = json.dumps(summary_data, ensure_ascii=False)
+            doc_url = None
 
         # 第4步：推送
         logger.debug("[推送] 开始推送...")
@@ -245,6 +265,7 @@ def process_single_video(bvid: str):
             "stocks": summary_data.get("stocks", []),
             "insights": summary_data.get("insights", ""),
             "url": f"https://www.bilibili.com/video/{bvid}",
+            "doc_url": doc_url,
             "duration_minutes": summary_data.get("duration_minutes", 0),
             "timestamp": video.pub_time
         }, ["feishu"])
