@@ -98,9 +98,34 @@ def _save_folder_mapping(uploader_name: str, category: str, folder_token: str, f
         session.close()
 
 
-def _create_folder_in_feishu(parent_token: Optional[str], folder_name: str, token: str) -> Optional[str]:
+def _verify_folder_exists(folder_token: str, token: str) -> bool:
     """
-    在飞书中创建文件夹
+    验证文件夹是否存在
+
+    Args:
+        folder_token: 文件夹 token
+        token: tenant access token
+
+    Returns:
+        True 如果存在，False 否则
+    """
+    url = "https://open.feishu.cn/open-apis/drive/v1/files"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json; charset=utf-8"
+    }
+
+    try:
+        resp = requests.get(url, headers=headers, params={"page_size": 1, "folder_token": folder_token}, timeout=30)
+        data = resp.json()
+        return data.get("code") == 0
+    except Exception:
+        return False
+
+
+def _find_folder_in_feishu(parent_token: Optional[str], folder_name: str, token: str) -> Optional[str]:
+    """
+    在飞书中查找同名文件夹
 
     Args:
         parent_token: 父文件夹 token，None 表示根目录
@@ -108,8 +133,52 @@ def _create_folder_in_feishu(parent_token: Optional[str], folder_name: str, toke
         token: tenant access token
 
     Returns:
-        新创建的文件夹 token，失败返回 None
+        文件夹 token，如果不存在返回 None
     """
+    if not parent_token:
+        # 如果没有指定父文件夹，无法查找（根目录不支持列出文件夹）
+        return None
+
+    url = "https://open.feishu.cn/open-apis/drive/v1/files"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json; charset=utf-8"
+    }
+
+    try:
+        resp = requests.get(url, headers=headers, params={"page_size": 200, "folder_token": parent_token}, timeout=30)
+        data = resp.json()
+
+        if data.get("code") == 0:
+            files = data.get("data", {}).get("files", [])
+            for f in files:
+                if f.get("type") == "folder" and f.get("name") == folder_name:
+                    return f.get("token")
+        return None
+    except Exception as e:
+        logger.error(f"查找文件夹异常: {e}")
+        return None
+
+
+def _create_or_get_folder(parent_token: Optional[str], folder_name: str, token: str) -> Optional[str]:
+    """
+    获取或创建文件夹
+
+    Args:
+        parent_token: 父文件夹 token，None 表示根目录
+        folder_name: 文件夹名称
+        token: tenant access token
+
+    Returns:
+        文件夹 token，失败返回 None
+    """
+    # 先查找是否已存在
+    existing = _find_folder_in_feishu(parent_token, folder_name, token)
+    if existing:
+        logger.debug(f"文件夹已存在: {folder_name} -> {existing}")
+        return existing
+
+    # 不存在则创建
     url = "https://open.feishu.cn/open-apis/drive/v1/files/create_folder"
     headers = {
         "Authorization": f"Bearer {token}",
@@ -147,7 +216,7 @@ def _ensure_category_folder_exists(uploader_name: str, category: str) -> Optiona
     """
     from app.modules.push import get_feishu_tenant_access_token
 
-    # 1. 先检查缓存
+    # 1. 先检查缓存，如果缓存存在且有效就直接使用
     cached_token = _get_folder_mapping(uploader_name, category)
     if cached_token:
         logger.debug(f"使用缓存的文件夹 token: {cached_token}")
@@ -159,10 +228,10 @@ def _ensure_category_folder_exists(uploader_name: str, category: str) -> Optiona
         logger.error("无法获取飞书 access_token")
         return None
 
-    # 3. 确保 UP 主文件夹存在
+    # 3. 获取或创建 UP 主文件夹
     uploader_folder_token = _get_folder_mapping(uploader_name, "")
     if not uploader_folder_token:
-        uploader_folder_token = _create_folder_in_feishu(
+        uploader_folder_token = _create_or_get_folder(
             Config.FEISHU_DOCS_FOLDER_TOKEN if Config.FEISHU_DOCS_FOLDER_TOKEN else None,
             uploader_name,
             token
@@ -170,10 +239,49 @@ def _ensure_category_folder_exists(uploader_name: str, category: str) -> Optiona
         if uploader_folder_token:
             _save_folder_mapping(uploader_name, "", uploader_folder_token, uploader_name)
             logger.info(f"创建 UP 主文件夹: {uploader_name} -> {uploader_folder_token}")
+    else:
+        # 验证缓存的 UP 主文件夹是否仍然有效
+        if not _verify_folder_exists(uploader_folder_token, token):
+            logger.warning(f"缓存的 UP 主文件夹已失效，重新创建: {uploader_folder_token}")
+            uploader_folder_token = None
+            # 删除失效的缓存
+            from app.models.database import SessionLocal, FolderMapping
+            session = SessionLocal()
+            session.query(FolderMapping).filter_by(uploader_name=uploader_name, category="").delete()
+            session.commit()
+            session.close()
 
-    # 4. 确保分类文件夹存在（包括"默认"分类也会创建子文件夹）
+    # 如果 UP 主文件夹不存在，重新获取或创建
+    if not uploader_folder_token:
+        uploader_folder_token = _create_or_get_folder(
+            Config.FEISHU_DOCS_FOLDER_TOKEN if Config.FEISHU_DOCS_FOLDER_TOKEN else None,
+            uploader_name,
+            token
+        )
+        if uploader_folder_token:
+            _save_folder_mapping(uploader_name, "", uploader_folder_token, uploader_name)
+            logger.info(f"重新创建 UP 主文件夹: {uploader_name} -> {uploader_folder_token}")
+
+    # 4. 获取或创建分类文件夹
     if uploader_folder_token:
-        folder_token = _create_folder_in_feishu(uploader_folder_token, category, token)
+        # 先尝试在数据库中查找分类文件夹
+        cached_category_token = _get_folder_mapping(uploader_name, category)
+        if cached_category_token:
+            # 验证缓存的分类文件夹是否仍然有效
+            if _verify_folder_exists(cached_category_token, token):
+                logger.debug(f"使用缓存的分类文件夹 token: {cached_category_token}")
+                return cached_category_token
+            else:
+                logger.warning(f"缓存的分类文件夹已失效，重新创建: {cached_category_token}")
+                # 删除失效的缓存
+                from app.models.database import SessionLocal, FolderMapping
+                session = SessionLocal()
+                session.query(FolderMapping).filter_by(uploader_name=uploader_name, category=category).delete()
+                session.commit()
+                session.close()
+
+        # 创建新的分类文件夹
+        folder_token = _create_or_get_folder(uploader_folder_token, category, token)
         if folder_token:
             folder_path = f"{uploader_name}/{category}"
             _save_folder_mapping(uploader_name, category, folder_token, folder_path)
