@@ -100,6 +100,33 @@ class Log(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class ClassificationRule(Base):
+    """视频分类规则表"""
+    __tablename__ = "classification_rules"
+
+    id = Column(Integer, primary_key=True)
+    uploader_name = Column(String, nullable=False)  # UP主名称，"*" 表示所有UP主
+    pattern = Column(String, nullable=False)        # 正则表达式
+    target_folder = Column(String, nullable=False)  # 目标文件夹名称
+    priority = Column(Integer, default=100)         # 优先级，数字越小越先匹配
+    is_active = Column(Boolean, default=True)      # 是否启用
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class FolderMapping(Base):
+    """飞书文件夹映射表"""
+    __tablename__ = "folder_mappings"
+
+    id = Column(Integer, primary_key=True)
+    uploader_name = Column(String, nullable=False)  # UP主名称
+    category = Column(String, nullable=False)       # 分类名称
+    folder_token = Column(String, nullable=False)  # 飞书文件夹 token
+    folder_path = Column(String, unique=True, nullable=False)  # 完整路径，如 "呆咪/每日投资记录"
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 engine = create_engine(
     Config.DATABASE_URL,
     echo=False,
