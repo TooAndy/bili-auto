@@ -126,7 +126,8 @@ def check_new_dynamics():
                 logger.warning("[检测] 未配置任何UP主订阅")
                 return
 
-            new_count = 0
+            # 收集所有新动态
+            all_new_dynamics = []
             error_count = 0
 
             for sub in subscriptions:
@@ -146,23 +147,9 @@ def check_new_dynamics():
 
                         # 下载图片
                         dyn = fetcher.download_images(dyn)
-
-                        # 新动态，添加到数据库
-                        new_dynamic = Dynamic(
-                            dynamic_id=dyn["dynamic_id"],
-                            mid=sub.mid,
-                            type=dyn.get("type", 0),
-                            text=dyn.get("text", ""),
-                            image_count=len(dyn.get("images", [])),
-                            images_path=json.dumps(dyn.get("images", []), ensure_ascii=False),
-                            image_urls=json.dumps(dyn.get("image_urls", []), ensure_ascii=False),
-                            pub_time=dyn.get("pub_time"),
-                            status="pending"
-                        )
-                        db.add(new_dynamic)
-                        new_count += 1
-                        text_preview = (dyn.get("text", "") or "")[:60]
-                        logger.info("[新动态] %s | %s...", sub.name, text_preview)
+                        dyn["mid"] = sub.mid
+                        dyn["sub_name"] = sub.name
+                        all_new_dynamics.append(dyn)
 
                     sub.last_check_time = datetime.utcnow()
 
@@ -171,8 +158,40 @@ def check_new_dynamics():
                     logger.error("[检测] 检查用户 %s(%s) 动态失败: %s",
                                sub.mid, sub.name, e, exc_info=True)
 
+            # 按发布时间排序（最早的在前）
+            all_new_dynamics.sort(key=lambda d: d.get("pub_time") or datetime.min)
+
+            # 保存到数据库并立即推送
+            from app.modules.push import push_content
+            for dyn in all_new_dynamics:
+                new_dynamic = Dynamic(
+                    dynamic_id=dyn["dynamic_id"],
+                    mid=dyn["mid"],
+                    type=dyn.get("type", 0),
+                    text=dyn.get("text", ""),
+                    image_count=len(dyn.get("images", [])),
+                    images_path=json.dumps(dyn.get("images", []), ensure_ascii=False),
+                    image_urls=json.dumps(dyn.get("image_urls", []), ensure_ascii=False),
+                    pub_time=dyn.get("pub_time"),
+                    status="sent",
+                    pushed_at=datetime.utcnow()
+                )
+                db.add(new_dynamic)
+
+                # 立即推送（按时间顺序）
+                pub_time_str = str(dyn["pub_time"]) if dyn.get("pub_time") else ""
+                push_content({
+                    "type": "dynamic",
+                    "text": dyn.get("text", ""),
+                    "images": dyn.get("images", []),
+                    "image_urls": dyn.get("image_urls", []),
+                    "pub_time": pub_time_str,
+                    "url": f"https://www.bilibili.com/opus/{dyn['dynamic_id']}"
+                }, ["feishu"])
+                logger.info("[推送] %s | %s...", dyn.get("sub_name", ""), (dyn.get("text", "") or "")[:50])
+
             db.commit()
-            logger.info("[检测完成] 发现 %d 个新动态，%d 个错误", new_count, error_count)
+            logger.info("[检测完成] 发现 %d 个新动态，%d 个错误", len(all_new_dynamics), error_count)
 
     except Exception as e:
         logger.error("[检测] 异常: %s", e, exc_info=True)
