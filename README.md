@@ -9,7 +9,8 @@
 - **语音识别**: 支持 faster-whisper 和 whisper.cpp 两种方案
 - **文本纠错**: LLM 自动修正语音识别错误
 - **内容持久化**: 识别文本保存为 txt，详细总结保存为 markdown
-- **灵活推送**: 统一的多渠道推送接口（扩展中）
+- **飞书文档**: 自动上传视频摘要到飞书云盘，按UP主和内容分类
+- **灵活推送**: 统一的多渠道推送接口（飞书、Telegram、微信等）
 
 ## 📁 项目结构
 
@@ -20,20 +21,24 @@ bili-auto/
 │   │   ├── bilibili.py   # B站API接口
 │   │   ├── downloader.py # 音视频下载（m4a + mp4）
 │   │   ├── dynamic.py    # 动态处理
+│   │   ├── feishu_docs.py # 飞书文档上传和分类
 │   │   ├── processor.py  # 统一处理（纠错+总结）
 │   │   ├── push.py       # 消息推送
 │   │   ├── subtitle.py   # 字幕获取
-│   │   └── whisper_ai.py # 语音识别（faster-whisper + whisper.cpp，支持视频输入）
+│   │   └── whisper_ai.py # 语音识别（faster-whisper + whisper.cpp）
 │   ├── models/           # 数据模型
 │   │   └── database.py   # SQLAlchemy ORM
+│   ├── tools/            # CLI 工具
+│   │   └── classification_rules.py # 飞书文档分类规则管理
 │   ├── utils/            # 工具函数
 │   │   ├── errors.py     # 异常定义
 │   │   └── logger.py     # 日志管理
-│   ├── queue_worker.py   # 任务队列处理
+│   ├── queue_worker.py   # 视频任务队列处理
 │   └── scheduler.py      # 定时任务调度
 ├── scripts/              # 实用脚本工具
 │   ├── batch_download.py        # 批量下载 UP主视频
 │   ├── manage_subscriptions.py  # UP主订阅管理工具
+│   ├── migrate_add_doc_url.py    # 数据库迁移（添加文档URL字段）
 │   ├── reset_processing.py      # 重置 processing 状态
 │   ├── test_asr_file.py        # 测试 ASR 识别
 │   └── test_processor.py       # 测试统一处理模块
@@ -82,6 +87,9 @@ cp .env.example .env
 # - USE_WHISPER_CPP (是否使用 whisper.cpp)
 # - WHISPER_CPP_CLI (whisper.cpp 路径)
 # - WHISPER_CPP_MODEL (whisper.cpp 模型路径)
+# - FEISHU_DOCS_ENABLED (是否启用飞书文档上传)
+# - FEISHU_APP_ID / FEISHU_APP_SECRET (飞书应用凭证)
+# - FEISHU_DOCS_FOLDER_TOKEN (飞书云盘文件夹 token)
 ```
 
 ### 3. 管理UP主订阅
@@ -90,15 +98,105 @@ cp .env.example .env
 uv run python scripts/manage_subscriptions.py
 ```
 
-详细说明见 [UP主订阅管理指南](docs/MANAGE_SUBSCRIPTIONS.md)
+### 4. 管理分类规则（可选）
 
-### 4. 启动系统
+```bash
+# 添加分类规则
+uv run bili-rules add --uploader 呆咪 --pattern "经济分析" --folder "每周经济分析" --priority 1
+
+# 测试标题匹配
+uv run bili-rules test "第1150日投资记录" --uploader 呆咪
+
+# 列出规则
+uv run bili-rules list
+
+# 删除规则
+uv run bili-rules delete 1
+```
+
+详细说明见 [飞书文档分类规则管理](docs/CLASSIFICATION_RULES.md)
+
+### 5. 启动系统
 
 ```bash
 uv run python main.py
 ```
 
-### 5. 实用工具
+## 📂 飞书云盘目录结构
+
+视频摘要会按以下结构上传到飞书云盘：
+
+```
+/呆咪/
+├── 每日投资记录/
+│   └── 2026-04-17_小米年报解读.md
+│   └── 2026-04-16_第1150日投资记录.md
+├── 每周经济分析/
+│   └── 2026-04-15_经济形势分析.md
+└── 默认/
+    └── 2026-04-10_其他内容.md
+```
+
+**分类规则**:
+- 支持正则表达式匹配视频标题
+- 按优先级排序，数字越小越先匹配
+- 无匹配时使用"默认"分类
+- 同一UP主的不同内容可以自动分类到不同文件夹
+
+## 📱 推送渠道
+
+### 动态推送
+- 检测到新动态后**立即推送**（按发布时间顺序）
+- 显示格式：`2026年04月17日 16:30:19`
+
+### 视频推送
+- 处理完成后推送到配置的通知渠道
+
+**支持的渠道**:
+- 飞书（应用推送）
+- Telegram
+- 微信企业号
+
+## 🛠️ 核心工作流
+
+### 视频处理流程
+```
+scheduler (可配置周期)
+    ↓
+检测新视频
+    ↓
+queue_worker
+    ├→ 检查已有文本
+    ├→ 下载音频/获取字幕
+    ├→ 转文字 (Whisper)
+    ├→ LLM纠错+总结
+    ├→ 保存 txt + markdown
+    ├→ 上传到飞书云盘（按分类规则）
+    └→ 推送通知
+```
+
+### 动态处理流程
+```
+scheduler (可配置周期)
+    ↓
+检测新动态
+    ↓
+按发布时间排序（最早的先推送）
+    ↓
+立即推送到飞书（无需队列）
+```
+
+## ⚙️ 技术栈
+
+- **Python 3.12+**
+- **数据库**: SQLite + SQLAlchemy
+- **任务调度**: APScheduler
+- **语音识别**: faster-whisper / whisper.cpp
+- **LLM**: OpenAI API / DeepSeek API / 通义千问 / 本地纯文本fallback
+- **飞书**: 文档上传、消息推送
+- **日志**: RotatingFileHandler (10MB/5份)
+
+## 📝 常用命令
 
 ```bash
 # 批量下载 UP主视频
@@ -106,6 +204,12 @@ uv run scripts/batch_download.py <mid> --all                    # 所有视频
 uv run scripts/batch_download.py <mid> --start-date 20250101    # 按日期范围
 uv run scripts/batch_download.py <mid> --all --preview          # 预览模式
 uv run scripts/batch_download.py <mid> --all --quality 1080p    # 指定清晰度
+
+# 管理订阅
+uv run scripts/manage_subscriptions.py
+
+# 管理分类规则
+uv run bili-rules add --uploader 呆咪 --pattern "投资记录" --folder "每日投资记录"
 
 # 重置 processing 状态的任务
 uv run scripts/reset_processing.py
@@ -116,74 +220,6 @@ uv run scripts/test_asr_file.py
 # 测试统一处理模块
 uv run scripts/test_processor.py
 ```
-
-## 📖 文档导航
-
-- [项目规划](docs/PROJECT_PLAN.md) - 功能需求和实现方案
-- [状态报告](docs/STATUS_REPORT.md) - 当前功能完成情况
-- [订阅管理](docs/MANAGE_SUBSCRIPTIONS.md) - 添加/编辑UP主的三种方式
-- [快速参考](docs/QUICK_REFERENCE.md) - 常用命令速查表
-
-## 🛠️ 核心工作流
-
-```
-scheduler (可配置周期)
-    ↓
-检测新视频/动态
-    ↓
-queue_worker (先标记为 processing，避免重复处理)
-    ├→ 视频: 检查已有文本 → 下载音频/获取字幕 → 转文字 → LLM纠错+总结 → 保存txt+markdown → 推送
-    └→ 动态: 获取 → 下载图片 → 过滤 → 推送
-```
-
-## ⚙️ 技术栈
-
-- **Python 3.10+**
-- **数据库**: SQLite + SQLAlchemy
-- **任务调度**: APScheduler
-- **语音识别**: faster-whisper / whisper.cpp
-- **LLM**: OpenAI API / DeepSeek API / 通义千问 / 本地纯文本fallback
-- **日志**: RotatingFileHandler (10MB/5份)
-
-## 📝 使用示例
-
-### 添加UP主订阅
-
-```bash
-# 交互式添加
-uv run scripts/manage_subscriptions.py
-
-# 命令行添加
-uv run python -c "from scripts.manage_subscriptions import add_subscription; add_subscription(1988098633, '李毓佳')"
-```
-
-### 查看当前订阅
-
-```bash
-uv run scripts/manage_subscriptions.py  # 选择菜单 1
-```
-
-## 🔄 状态机设计
-
-任务处理采用状态机管理：
-
-```
-pending (待处理)
-    ↓
-processing (处理中) - 提交任务前立即设置，避免重复处理
-    ↓
-done (完成) 或 failed (失败)
-```
-
-失败任务自动重试，最多3次。
-
-## 📋 数据库表
-
-- **Subscription**: UP主信息和订阅状态
-- **Video**: 视频元数据和处理状态
-- **Dynamic**: 动态内容和处理状态
-- **Summary**: AI生成的摘要缓存
-- **Log**: 系统日志记录
 
 ## 🐛 调试
 
@@ -198,12 +234,7 @@ tail -f logs/bili.log
 ```bash
 grep "ERROR" logs/bili.log
 grep "DEBUG" logs/bili.log
-```
-
-重置 processing 状态任务：
-
-```bash
-uv run scripts/reset_processing.py
+grep "新动态" logs/bili.log
 ```
 
 ## 📄 许可证
@@ -213,5 +244,5 @@ MIT
 ---
 
 **项目阶段**: MVP Phase 1 + 优化增强
-**最后更新**: 2026年3月26日
-**版本**: 0.2.0
+**最后更新**: 2026年4月17日
+**版本**: 0.3.0
