@@ -106,41 +106,71 @@ class DynamicFetcher:
         text = ""
         image_urls = []
 
-        # 根据动态类型解析
-        if dynamic_type_str == "DYNAMIC_TYPE_AV":
-            # 视频动态
-            major = module_dynamic.get("major") or {}
+        # 根据 major.type 判断内容类型（而不是 dynamic_type_str）
+        major = module_dynamic.get("major") or {}
+        major_type = major.get("type", "")
+
+        # MAJOR_TYPE_OPUS - 图文动态或新版带图片的动态
+        if major_type == "MAJOR_TYPE_OPUS":
+            opus = major.get("opus") or {}
+            # summary 可能是一个 dict 或 string
+            summary = opus.get("summary", "")
+            if isinstance(summary, dict):
+                text = summary.get("text", "") or ""
+            else:
+                text = summary or ""
+            # 获取图片 - 从 pics 字段
+            for img in opus.get("pics") or []:
+                if isinstance(img, dict):
+                    image_urls.append(img.get("src", ""))
+
+        # MAJOR_TYPE_ARCHIVE - 视频动态
+        elif major_type == "MAJOR_TYPE_ARCHIVE":
             archive = major.get("archive") or {}
             text = archive.get("title", "")
             desc = archive.get("desc", "")
             if desc:
                 text = f"{text}\n{desc}" if text else desc
 
-        elif dynamic_type_str in ["DYNAMIC_TYPE_WORD", "DYNAMIC_TYPE_DRAW", "DYNAMIC_TYPE_OPUS"]:
-            # 文字/图片动态
-            major = module_dynamic.get("major") or {}
-            if dynamic_type_str == "DYNAMIC_TYPE_OPUS":
-                # 图文动态（大图）
-                opus = major.get("opus") or {}
-                text = opus.get("summary", "") or opus.get("title", "")
-                # 获取图片
-                for img in opus.get("images") or []:
-                    if isinstance(img, dict):
-                        image_urls.append(img.get("url", ""))
-            else:
-                # 普通文字/图片动态
-                common = major.get("common") or {}
-                text = common.get("desc", "")
-                # 获取图片
-                for img in common.get("images") or []:
-                    if isinstance(img, dict):
-                        src = img.get("src", "")
-                        if src:
-                            image_urls.append(src)
+        # MAJOR_TYPE_COMMON - 普通内容（文字或图片）
+        elif major_type == "MAJOR_TYPE_COMMON":
+            common = major.get("common") or {}
+            text = common.get("desc", "")
+            # 获取图片
+            for img in common.get("images") or []:
+                if isinstance(img, dict):
+                    src = img.get("src", "")
+                    if src:
+                        image_urls.append(src)
+
+        # MAJOR_TYPE_UGC_SEASON 或其他视频类型
+        elif major_type == "MAJOR_TYPE_UGC_SEASON":
+            ugc_season = major.get("ugc_season") or {}
+            text = ugc_season.get("title", "")
 
         else:
-            # 其他类型不处理
-            return None
+            # 尝试兼容旧的 dynamic_type_str 方式
+            if dynamic_type_str == "DYNAMIC_TYPE_AV":
+                archive = major.get("archive") or {}
+                text = archive.get("title", "")
+                desc = archive.get("desc", "")
+                if desc:
+                    text = f"{text}\n{desc}" if text else desc
+            elif dynamic_type_str in ["DYNAMIC_TYPE_WORD", "DYNAMIC_TYPE_DRAW", "DYNAMIC_TYPE_OPUS"]:
+                opus = major.get("opus") or {}
+                if opus:
+                    text = opus.get("summary", "") or opus.get("title", "")
+                    for img in opus.get("images") or []:
+                        if isinstance(img, dict):
+                            image_urls.append(img.get("url", ""))
+                else:
+                    common = major.get("common") or {}
+                    text = common.get("desc", "")
+                    for img in common.get("images") or []:
+                        if isinstance(img, dict):
+                            src = img.get("src", "")
+                            if src:
+                                image_urls.append(src)
 
         text = text.strip()
         if not text:
