@@ -177,13 +177,17 @@ class DynamicFetcher:
             return None
 
         # 获取发布时间
-        pub_ts = module_author.get("pub_ts", 0)
+        pub_ts_str = module_author.get("pub_ts", "0")
         pub_time = module_author.get("pub_time", "")
 
-        # 将时间戳转换为 datetime 对象
+        # 将时间戳转换为 datetime 对象（pub_ts 可能是字符串）
         pub_datetime = None
-        if pub_ts and isinstance(pub_ts, int) and pub_ts > 0:
-            pub_datetime = datetime.fromtimestamp(pub_ts)
+        try:
+            pub_ts = int(pub_ts_str)
+            if pub_ts > 0:
+                pub_datetime = datetime.fromtimestamp(pub_ts)
+        except (ValueError, TypeError):
+            pass
 
         return {
             "dynamic_id": dynamic_id,

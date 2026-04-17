@@ -230,6 +230,7 @@ def process_single_video(bvid: str):
                     title=video.title,
                     markdown_content=md_content,
                     bvid=bvid,
+                    pub_time=video.pub_time,
                     uploader_name=uploader_name
                 )
                 if doc_result:

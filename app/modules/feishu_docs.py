@@ -375,6 +375,7 @@ def push_video_summary_to_doc(
     title: str,
     markdown_content: str,
     bvid: str,
+    pub_time: Optional[int] = None,
     uploader_name: Optional[str] = None
 ) -> Optional[Dict[str, Any]]:
     """
@@ -384,6 +385,7 @@ def push_video_summary_to_doc(
         title: 文档标题（通常是视频标题）
         markdown_content: summary.md 的内容
         bvid: 视频 BV 号
+        pub_time: 视频发布时间戳（Unix timestamp）
         uploader_name: UP 主名称（可选）
 
     Returns:
@@ -408,10 +410,18 @@ def push_video_summary_to_doc(
         logger.warning(f"无法获取文件夹 token，使用根目录上传")
         folder_token = Config.FEISHU_DOCS_FOLDER_TOKEN if Config.FEISHU_DOCS_FOLDER_TOKEN else None
 
-    # 3. 构建完整标题
-    now = datetime.now()
-    date_prefix = now.strftime("%Y%m%d")
-    full_title = f"{date_prefix}_{bvid}_{title[:50]}"
+    # 3. 构建完整标题（使用视频发布时间，而非上传时间）
+    # 格式：2026-04-17_视频标题
+    if pub_time:
+        try:
+            pub_dt = datetime.fromtimestamp(pub_time)
+            date_prefix = pub_dt.strftime("%Y-%m-%d")
+        except (ValueError, TypeError):
+            date_prefix = datetime.now().strftime("%Y-%m-%d")
+    else:
+        date_prefix = datetime.now().strftime("%Y-%m-%d")
+
+    full_title = f"{date_prefix}_{title[:50]}"
 
     # 4. 上传
     result = upload_markdown_to_feishu(full_title, markdown_content, folder_token)

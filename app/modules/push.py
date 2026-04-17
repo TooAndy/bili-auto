@@ -187,14 +187,26 @@ def push_feishu_dynamic(content_data: dict) -> bool:
     url = content_data.get("url", "")
     pub_time = content_data.get("pub_time", "")
 
+    # 格式化时间为 年月日时分秒
+    if pub_time:
+        try:
+            # pub_time 可能是 "2026-04-16 10:30:00" 格式
+            dt = datetime.strptime(pub_time, "%Y-%m-%d %H:%M:%S")
+            pub_time_str = dt.strftime("%Y年%m月%d日 %H:%M:%S")
+        except (ValueError, TypeError):
+            # 如果解析失败，保留原字符串
+            pub_time_str = pub_time
+    else:
+        pub_time_str = ""
+
     # 截断过长的文本
     display_text = text[:500]
     if len(text) > 500:
         display_text += "..."
 
     msg = f"📝 新动态\n\n{display_text}\n\n"
-    if pub_time:
-        msg += f"⏰ {pub_time}\n"
+    if pub_time_str:
+        msg += f"⏰ {pub_time_str}\n"
     msg += f"🔗 {url}"
 
     return push_feishu_text(msg)
