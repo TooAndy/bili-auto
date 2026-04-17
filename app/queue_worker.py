@@ -374,10 +374,10 @@ def start_queue_worker(max_workers: int = 3):
             try:
                 db = get_db()
                 try:
-                    # 优先处理动态（处理快）
+                    # 优先处理动态（处理快）- 按发布时间升序，先处理最早的
                     pending_dynamics = db.query(Dynamic).filter_by(
                         status="pending"
-                    ).order_by(Dynamic.created_at).limit(5).all()
+                    ).order_by(Dynamic.pub_time.asc().nullslast()).limit(5).all()
 
                     # 然后处理视频
                     pending_videos = db.query(Video).filter_by(
