@@ -171,12 +171,7 @@ def _ensure_category_folder_exists(uploader_name: str, category: str) -> Optiona
             _save_folder_mapping(uploader_name, "", uploader_folder_token, uploader_name)
             logger.info(f"创建 UP 主文件夹: {uploader_name} -> {uploader_folder_token}")
 
-    # 4. 如果分类是"默认"且已有 UP 主文件夹，用 UP 主文件夹
-    if category == "默认" and uploader_folder_token:
-        _save_folder_mapping(uploader_name, category, uploader_folder_token, f"{uploader_name}/默认")
-        return uploader_folder_token
-
-    # 5. 确保分类文件夹存在
+    # 4. 确保分类文件夹存在（包括"默认"分类也会创建子文件夹）
     if uploader_folder_token:
         folder_token = _create_folder_in_feishu(uploader_folder_token, category, token)
         if folder_token:
