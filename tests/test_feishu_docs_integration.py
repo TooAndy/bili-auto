@@ -10,7 +10,7 @@
 - FEISHU_DOCS_FOLDER_TOKEN (可选)
 
 运行方式：
-    python3 -m pytest tests/test_feishu_docs_integration.py -v --tb=short
+    python3 -m pytest tests/test_feishu_docs_integration.py -v --tb=short -m integration
 """
 
 import os
@@ -19,7 +19,6 @@ from pathlib import Path
 
 import pytest
 
-# 添加项目根目录
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.modules import feishu_docs
@@ -37,10 +36,10 @@ def is_feishu_configured() -> bool:
 
 @pytest.mark.integration
 @pytest.mark.skipif(not is_feishu_configured(), reason="飞书配置不完整")
-def test_create_doc_simple_real_api():
-    """集成测试：使用真实 API 创建简单文档"""
+def test_upload_markdown_real_api():
+    """集成测试：使用真实 API 上传 Markdown 文件"""
     print("\n" + "=" * 70)
-    print("测试：使用真实飞书 API 创建文档")
+    print("测试：使用真实飞书 API 上传 Markdown")
     print("=" * 70)
 
     title = "测试文档 - bili-auto 集成测试"
@@ -65,20 +64,17 @@ def test_create_doc_simple_real_api():
 
     print(f"\n标题: {title}")
     print(f"文件夹: {folder_token or '根目录'}")
-    print("\n正在创建文档...")
+    print("\n正在上传文档...")
 
-    result = feishu_docs.create_doc_simple(title, content, folder_token)
+    result = feishu_docs.upload_markdown_to_feishu(title, content, folder_token)
 
-    assert result is not None, "文档创建失败，返回 None"
-    assert "doc_token" in result
+    assert result is not None, "文档上传失败，返回 None"
+    assert "file_token" in result
     assert "url" in result
-    assert "title" in result
 
-    print(f"\n✅ 文档创建成功!")
-    print(f"   文档 Token: {result['doc_token']}")
-    print(f"   文档链接: {result['url']}")
-    print(f"   文档标题: {result['title']}")
-    print("\n请在飞书中查看文档内容是否正确")
+    print(f"\n✅ 文档上传成功!")
+    print(f"   文件 Token: {result['file_token']}")
+    print(f"   文件链接: {result['url']}")
 
 
 @pytest.mark.integration
@@ -117,10 +113,6 @@ def test_push_video_summary_real_api():
 
 这里是详细的视频内容描述。
 可以包含很多行文字。
-
-### 标签
-
-#测试 #集成测试 #飞书文档
 """
 
     print(f"\n视频标题: {video_title}")
@@ -136,16 +128,14 @@ def test_push_video_summary_real_api():
     )
 
     assert result is not None, "文档创建失败，返回 None"
-    assert "doc_token" in result
+    assert "file_token" in result
     assert "url" in result
 
     print(f"\n✅ 视频总结文档创建成功!")
-    print(f"   文档链接: {result['url']}")
-    print("\n请在飞书中查看文档内容是否正确")
+    print(f"   文件链接: {result['url']}")
 
 
 if __name__ == "__main__":
-    # 直接运行此文件进行测试
     if not is_feishu_configured():
         print("❌ 飞书配置不完整，请检查 .env 文件")
         print("需要配置: FEISHU_APP_ID, FEISHU_APP_SECRET, FEISHU_DOCS_ENABLED=true")
@@ -154,7 +144,7 @@ if __name__ == "__main__":
     print("运行飞书文档集成测试...")
 
     try:
-        test_create_doc_simple_real_api()
+        test_upload_markdown_real_api()
         test_push_video_summary_real_api()
         print("\n" + "=" * 70)
         print("✅ 所有集成测试通过!")
