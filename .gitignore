@@ -20,3 +20,4 @@ models
 .DS_Store
 .playwright-cli
 .playwright
+.coverage
