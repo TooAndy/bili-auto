@@ -355,10 +355,13 @@ def push_feishu_dynamic_card(content_data: dict) -> bool:
     # 构建卡片元素
     elements = []
 
-    # 文本内容
+    # 文本内容 - text 必须是对象格式
     elements.append({
         "tag": "div",
-        "text": display_text
+        "text": {
+            "tag": "plain_text",
+            "content": display_text
+        }
     })
 
     # 添加图片
@@ -372,16 +375,21 @@ def push_feishu_dynamic_card(content_data: dict) -> bool:
     if pub_time_str:
         elements.append({
             "tag": "div",
-            "text": f"⏰ {pub_time_str}",
+            "text": {
+                "tag": "plain_text",
+                "content": f"⏰ {pub_time_str}"
+            },
             "text_align": "left"
         })
 
-    # 链接
+    # 链接 - 使用 lark_md 标签的 markdown 链接格式
     if url:
         elements.append({
-            "tag": "a",
-            "text": "🔗 查看原动态",
-            "href": url
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": f"[🔗 查看原动态]({url})"
+            }
         })
 
     # 构建卡片
