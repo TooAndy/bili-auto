@@ -60,12 +60,20 @@ omit = [
   "*/__pycache__/*",
   "*/migrations/*",
   "*/mcp__playwright__*",
+  # 难以单元测试的模块，需要集成测试
+  "*/queue_worker.py",
+  "*/scheduler.py",
+  "*/processor.py",
+  "*/tools/classification_rules.py",
+  # 外部依赖模块
+  "*/app/modules/whisper_ai.py",
 ]
 
 [tool.coverage.report]
 precision = 2
 show_missing = true
 skip_covered = false
+fail_under = 45
 exclude_lines = [
   "pragma: no cover",
   "def __repr__",

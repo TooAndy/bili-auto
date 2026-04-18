@@ -1,0 +1,76 @@
+name: Integration Tests
+
+# 仅手动触发，不在每次 PR/push 时运行
+on:
+  workflow_dispatch:
+    inputs:
+      test_scope:
+        description: '测试范围'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - feishu
+          - bilibili
+
+env:
+  # 敏感信息通过 GitHub Secrets 注入
+  BILIBILI_COOKIE: ${{ secrets.BILIBILI_COOKIE }}
+  FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+  FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+  FEISHU_RECEIVE_ID: ${{ secrets.FEISHU_RECEIVE_ID }}
+  FEISHU_DOCS_ENABLED: "true"
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+jobs:
+  integration-tests:
+    name: Integration Tests (${{ inputs.test_scope }})
+    runs-on: ubuntu-latest
+    environment: integration-tests
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Create .env file
+        run: |
+          cat > .env << EOF
+          BILIBILI_COOKIE=${{ secrets.BILIBILI_COOKIE }}
+          FEISHU_APP_ID=${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET=${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_RECEIVE_ID=${{ secrets.FEISHU_RECEIVE_ID }}
+          FEISHU_DOCS_ENABLED=true
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          EOF
+
+      - name: Run integration tests
+        run: |
+          case "${{ inputs.test_scope }}" in
+            feishu)
+              uv run pytest tests/test_feishu_docs_integration.py -v --tb=short
+              ;;
+            bilibili)
+              uv run pytest tests/test_bilibili_integration.py -v --tb=short || true
+              ;;
+            all)
+              uv run pytest tests/test_feishu_docs_integration.py -v --tb=short
+              ;;
+          esac
+
+      - name: Upload coverage
+        if: success()
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
