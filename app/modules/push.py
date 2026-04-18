@@ -1,4 +1,3 @@
-import io
 import json
 import requests
 from datetime import datetime
@@ -311,6 +310,123 @@ def push_feishu_dynamic(content_data: dict) -> bool:
     return True
 
 
+def push_feishu_dynamic_card(content_data: dict) -> bool:
+    """
+    使用飞书卡片消息推送动态（支持内嵌图片）
+
+    Args:
+        content_data: 动态内容数据
+
+    Returns:
+        bool: 是否成功
+    """
+    token = get_feishu_tenant_access_token()
+    if not token:
+        logger.warning("无法获取飞书 token")
+        return False
+
+    text = content_data.get("text", "")
+    url = content_data.get("url", "")
+    pub_time = content_data.get("pub_time", "")
+    images = content_data.get("images", []) or []
+
+    # 格式化时间
+    if pub_time:
+        try:
+            dt = datetime.strptime(pub_time, "%Y-%m-%d %H:%M:%S")
+            pub_time_str = dt.strftime("%Y年%m月%d日 %H:%M:%S")
+        except (ValueError, TypeError):
+            pub_time_str = pub_time
+    else:
+        pub_time_str = ""
+
+    # 截断文本
+    display_text = text[:1000]
+    if len(text) > 1000:
+        display_text += "..."
+
+    # 先上传所有图片获取 image_key
+    image_keys = []
+    for img_path in images[:4]:
+        image_key = upload_image_to_feishu(img_path)
+        if image_key:
+            image_keys.append(image_key)
+
+    # 构建卡片元素
+    elements = []
+
+    # 文本内容
+    elements.append({
+        "tag": "div",
+        "text": display_text
+    })
+
+    # 添加图片
+    for key in image_keys:
+        elements.append({
+            "tag": "img",
+            "img_key": key
+        })
+
+    # 时间
+    if pub_time_str:
+        elements.append({
+            "tag": "div",
+            "text": f"⏰ {pub_time_str}",
+            "text_align": "left"
+        })
+
+    # 链接
+    if url:
+        elements.append({
+            "tag": "a",
+            "text": "🔗 查看原动态",
+            "href": url
+        })
+
+    # 构建卡片
+    card = {
+        "config": {
+            "wide_screen_mode": True
+        },
+        "header": {
+            "title": {
+                "tag": "plain_text",
+                "text": "📝 新动态"
+            },
+            "template": "blue"
+        },
+        "elements": elements
+    }
+
+    # 发送卡片消息
+    url_api = f"https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type={Config.FEISHU_RECEIVE_ID_TYPE}"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json; charset=utf-8"
+    }
+
+    payload = {
+        "receive_id": Config.FEISHU_RECEIVE_ID,
+        "msg_type": "interactive",
+        "content": json.dumps(card, ensure_ascii=False)
+    }
+
+    try:
+        resp = requests.post(url_api, headers=headers, json=payload, timeout=30)
+        data = resp.json()
+
+        if data.get("code") == 0:
+            logger.info("飞书卡片消息推送成功")
+            return True
+        else:
+            logger.error("飞书卡片推送失败: code=%s, msg=%s", data.get("code"), data.get("msg"))
+            return False
+    except Exception as e:
+        logger.error("飞书卡片推送异常: %s", e)
+        return False
+
+
 def push_telegram_dynamic(bot_token: str, chat_id: str, content_data: dict) -> bool:
     """占位符实现"""
     logger.info("[推送占位符] Telegram: %s", content_data.get("title", content_data.get("text", ""))[:50])
@@ -377,7 +493,7 @@ def push_content(content_data: dict, channels: list) -> bool:
             if content_type == "video":
                 push_feishu_video(content_data)
             elif content_type == "dynamic":
-                push_feishu_dynamic(content_data)
+                push_feishu_dynamic_card(content_data)
         except Exception as e:
             logger.error("飞书推送异常: %s", e)
 
