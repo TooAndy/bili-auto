@@ -1,6 +1,8 @@
+import io
 import json
 import requests
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 from app.utils.logger import get_logger
 from config import Config
@@ -10,6 +12,92 @@ logger = get_logger("push")
 # 飞书 tenant_access_token 缓存
 _feishu_token_cache = None
 _feishu_token_expire_at = 0
+
+
+def upload_image_to_feishu(image_path: str) -> Optional[str]:
+    """
+    上传图片到飞书并返回 image_key
+
+    Args:
+        image_path: 图片本地路径
+
+    Returns:
+        image_key 成功，None 失败
+    """
+    token = get_feishu_tenant_access_token()
+    if not token:
+        return None
+
+    url = "https://open.feishu.cn/open-apis/im/v1/images"
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+
+    try:
+        path = Path(image_path)
+        if not path.exists():
+            logger.warning("图片文件不存在: %s", image_path)
+            return None
+
+        files = {
+            "image": (path.name, path.read_bytes(), "image/png")
+        }
+        data = {"image_type": "message"}
+
+        resp = requests.post(url, headers=headers, data=data, files=files, timeout=30)
+        result = resp.json()
+
+        if result.get("code") == 0:
+            image_key = result.get("data", {}).get("image_key", "")
+            logger.debug("图片上传成功: %s -> %s", image_path, image_key)
+            return image_key
+        else:
+            logger.error("图片上传失败: code=%s, msg=%s", result.get("code"), result.get("msg"))
+            return None
+    except Exception as e:
+        logger.error("图片上传异常: %s", e)
+        return None
+
+
+def push_feishu_image(image_key: str) -> bool:
+    """
+    通过飞书应用推送图片消息
+
+    Args:
+        image_key: 飞书图片 key
+
+    Returns:
+        bool: 是否成功
+    """
+    token = get_feishu_tenant_access_token()
+    if not token:
+        return False
+
+    url = f"https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type={Config.FEISHU_RECEIVE_ID_TYPE}"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json; charset=utf-8"
+    }
+
+    content_json = json.dumps({"image_key": image_key}, ensure_ascii=False)
+    payload_dict = {
+        "receive_id": Config.FEISHU_RECEIVE_ID,
+        "msg_type": "image",
+        "content": content_json
+    }
+
+    try:
+        resp = requests.post(url, headers=headers, json=payload_dict, timeout=15)
+        data = resp.json()
+
+        if data.get("code") == 0:
+            return True
+        else:
+            logger.error("飞书图片推送失败: code=%s, msg=%s", data.get("code"), data.get("msg"))
+            return False
+    except Exception as e:
+        logger.error("飞书图片推送异常: %s", e)
+        return False
 
 
 def get_feishu_tenant_access_token() -> Optional[str]:
@@ -209,7 +297,18 @@ def push_feishu_dynamic(content_data: dict) -> bool:
         msg += f"⏰ {pub_time_str}\n"
     msg += f"🔗 {url}"
 
-    return push_feishu_text(msg)
+    # 先发送文本
+    if not push_feishu_text(msg):
+        return False
+
+    # 发送图片（最多4张）
+    images = content_data.get("images", []) or []
+    for img_path in images[:4]:
+        image_key = upload_image_to_feishu(img_path)
+        if image_key:
+            push_feishu_image(image_key)
+
+    return True
 
 
 def push_telegram_dynamic(bot_token: str, chat_id: str, content_data: dict) -> bool:

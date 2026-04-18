@@ -122,7 +122,9 @@ class DynamicFetcher:
             # 获取图片 - 从 pics 字段
             for img in opus.get("pics") or []:
                 if isinstance(img, dict):
-                    image_urls.append(img.get("src", ""))
+                    src = img.get("url", "")
+                    if src:
+                        image_urls.append(src)
 
         # MAJOR_TYPE_ARCHIVE - 视频动态
         elif major_type == "MAJOR_TYPE_ARCHIVE":
