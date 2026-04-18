@@ -61,7 +61,7 @@ def test_download_audio_calls_yt_dlp(temp_dir, mock_subprocess):
     assert "yt-dlp" in cmd_args
     assert "-x" in cmd_args
     assert "--audio-format" in cmd_args
-    assert "wav" in cmd_args
+    assert "m4a" in cmd_args
     assert bvid in cmd_args[-1]
 
 

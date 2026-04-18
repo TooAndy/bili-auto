@@ -12,21 +12,18 @@ def test_get_subtitles_success():
     """测试：成功获取字幕"""
     bvid = "BV1234567890"
 
-    # Mock get_subtitle_info
     mock_subtitle_info = {
         "data": {
             "subtitle": {
                 "list": [
                     {
                         "subtitle_url": "https://example.com/subtitle.json",
-                        "lan_url": "https://example.com/subtitle.json"
                     }
                 ]
             }
         }
     }
 
-    # Mock requests.get
     mock_subtitle_json = {
         "body": [
             {"content": "第一句话"},
@@ -35,13 +32,13 @@ def test_get_subtitles_success():
         ]
     }
 
-    with patch('app.modules.subtitle.get_subtitle_info', return_value=mock_subtitle_info):
-        with patch('requests.get') as mock_get:
-            mock_response = MagicMock()
-            mock_response.raise_for_status.return_value = None
-            mock_response.json.return_value = mock_subtitle_json
-            mock_get.return_value = mock_response
+    mock_session = MagicMock()
+    mock_response = MagicMock()
+    mock_response.json.return_value = mock_subtitle_json
+    mock_session.get.return_value = mock_response
 
+    with patch('app.modules.subtitle.get_subtitle_info', return_value=mock_subtitle_info):
+        with patch('app.modules.subtitle._get_session', return_value=mock_session):
             result = subtitle.get_subtitles(bvid)
 
     # 验证结果
@@ -97,11 +94,13 @@ def test_get_subtitles_request_fails():
         }
     }
 
+    mock_session = MagicMock()
+    mock_session.get.side_effect = Exception("Network error")
+
     with patch('app.modules.subtitle.get_subtitle_info', return_value=mock_subtitle_info):
-        with patch('requests.get', side_effect=Exception("Network error")):
+        with patch('app.modules.subtitle._get_session', return_value=mock_session):
             result = subtitle.get_subtitles(bvid)
 
-    # 即使请求失败也应该返回空字符串，不抛出异常
     assert result == ""
 
 
@@ -124,16 +123,15 @@ def test_get_subtitles_no_url_in_subtitle_item():
         "body": [{"content": "有效内容"}]
     }
 
-    with patch('app.modules.subtitle.get_subtitle_info', return_value=mock_subtitle_info):
-        with patch('requests.get') as mock_get:
-            mock_response = MagicMock()
-            mock_response.raise_for_status.return_value = None
-            mock_response.json.return_value = mock_subtitle_json
-            mock_get.return_value = mock_response
+    mock_session = MagicMock()
+    mock_response = MagicMock()
+    mock_response.json.return_value = mock_subtitle_json
+    mock_session.get.return_value = mock_response
 
+    with patch('app.modules.subtitle.get_subtitle_info', return_value=mock_subtitle_info):
+        with patch('app.modules.subtitle._get_session', return_value=mock_session):
             result = subtitle.get_subtitles(bvid)
 
-    # 应该只获取第二个字幕项的内容
     assert "有效内容" in result
 
 
@@ -141,7 +139,6 @@ def test_get_subtitles_exception_returns_empty():
     """测试：任何异常都返回空字符串"""
     bvid = "BV1234567890"
 
-    # Mock get_subtitle_info 抛出异常
     with patch('app.modules.subtitle.get_subtitle_info', side_effect=Exception("API error")):
         result = subtitle.get_subtitles(bvid)
 
@@ -160,18 +157,17 @@ def test_get_subtitles_body_not_list():
         }
     }
 
-    # body 是字符串而不是列表
     mock_subtitle_json = {
         "body": "not a list"
     }
 
-    with patch('app.modules.subtitle.get_subtitle_info', return_value=mock_subtitle_info):
-        with patch('requests.get') as mock_get:
-            mock_response = MagicMock()
-            mock_response.raise_for_status.return_value = None
-            mock_response.json.return_value = mock_subtitle_json
-            mock_get.return_value = mock_response
+    mock_session = MagicMock()
+    mock_response = MagicMock()
+    mock_response.json.return_value = mock_subtitle_json
+    mock_session.get.return_value = mock_response
 
+    with patch('app.modules.subtitle.get_subtitle_info', return_value=mock_subtitle_info):
+        with patch('app.modules.subtitle._get_session', return_value=mock_session):
             result = subtitle.get_subtitles(bvid)
 
     # 应该优雅处理，返回空字符串
