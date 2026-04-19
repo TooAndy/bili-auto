@@ -104,6 +104,7 @@ class DynamicFetcher:
 
         # 获取文本内容
         text = ""
+        title = ""
         image_urls = []
 
         # 根据 major.type 判断内容类型（而不是 dynamic_type_str）
@@ -113,6 +114,8 @@ class DynamicFetcher:
         # MAJOR_TYPE_OPUS - 图文动态或新版带图片的动态
         if major_type == "MAJOR_TYPE_OPUS":
             opus = major.get("opus") or {}
+            # 提取标题（OPUS 动态有独立的 title 字段）
+            title = opus.get("title", "") or ""
             # summary 可能是一个 dict 或 string
             summary = opus.get("summary", "")
             if isinstance(summary, dict):
@@ -129,10 +132,8 @@ class DynamicFetcher:
         # MAJOR_TYPE_ARCHIVE - 视频动态
         elif major_type == "MAJOR_TYPE_ARCHIVE":
             archive = major.get("archive") or {}
-            text = archive.get("title", "")
-            desc = archive.get("desc", "")
-            if desc:
-                text = f"{text}\n{desc}" if text else desc
+            title = archive.get("title", "")
+            text = archive.get("desc", "")
 
         # MAJOR_TYPE_COMMON - 普通内容（文字或图片）
         elif major_type == "MAJOR_TYPE_COMMON":
@@ -148,20 +149,21 @@ class DynamicFetcher:
         # MAJOR_TYPE_UGC_SEASON 或其他视频类型
         elif major_type == "MAJOR_TYPE_UGC_SEASON":
             ugc_season = major.get("ugc_season") or {}
-            text = ugc_season.get("title", "")
+            title = ugc_season.get("title", "")
+            text = ""
 
         else:
             # 尝试兼容旧的 dynamic_type_str 方式
             if dynamic_type_str == "DYNAMIC_TYPE_AV":
                 archive = major.get("archive") or {}
-                text = archive.get("title", "")
+                title = archive.get("title", "")
                 desc = archive.get("desc", "")
-                if desc:
-                    text = f"{text}\n{desc}" if text else desc
+                text = desc
             elif dynamic_type_str in ["DYNAMIC_TYPE_WORD", "DYNAMIC_TYPE_DRAW", "DYNAMIC_TYPE_OPUS"]:
                 opus = major.get("opus") or {}
                 if opus:
-                    text = opus.get("summary", "") or opus.get("title", "")
+                    title = opus.get("title", "") or ""
+                    text = opus.get("summary", "") or ""
                     for img in opus.get("images") or []:
                         if isinstance(img, dict):
                             image_urls.append(img.get("url", ""))
@@ -175,7 +177,7 @@ class DynamicFetcher:
                                 image_urls.append(src)
 
         text = text.strip()
-        if not text:
+        if not text and not title:
             return None
 
         # 获取发布时间
@@ -194,6 +196,7 @@ class DynamicFetcher:
         return {
             "dynamic_id": dynamic_id,
             "type": dynamic_type_str,
+            "title": title,
             "text": text,
             "image_urls": image_urls,
             "pub_time": pub_datetime,
@@ -220,21 +223,25 @@ class DynamicFetcher:
 
 def should_push_dynamic(dynamic: dict) -> bool:
     text = (dynamic.get("text", "") or "").strip()
+    title = (dynamic.get("title", "") or "").strip()
 
-    if not text:
+    # 如果既没有标题也没有文本，不推送
+    if not text and not title:
         return False
 
-    if text.startswith("转发") or text.startswith("//@"):
-        return False
+    # 如果只有文本，检查文本内容
+    if text:
+        if text.startswith("转发") or text.startswith("//@"):
+            return False
 
-    if text.startswith("http") and len(text) < 120:
-        return False
+        if text.startswith("http") and len(text) < 120:
+            return False
 
-    if len(text) < 10:
-        return False
+        if len(text) < 10:
+            return False
 
-    banned_keywords = ["秒杀", "折扣", "限时"]
-    if any(kw in text for kw in banned_keywords):
-        return False
+        banned_keywords = ["秒杀", "折扣", "限时"]
+        if any(kw in text for kw in banned_keywords):
+            return False
 
     return True

@@ -70,6 +70,7 @@ class WechatChannel(BaseChannel):
 
     def _send_dynamic(self, content_data: Dict[str, Any]) -> bool:
         """推送动态消息"""
+        title = content_data.get("title", "")
         text = content_data.get("text", "")
         url = content_data.get("url", "")
         pub_time = content_data.get("pub_time", "")
@@ -96,7 +97,7 @@ class WechatChannel(BaseChannel):
             "news": {
                 "articles": [
                     {
-                        "title": "📝 新动态",
+                        "title": f"📝 {title}" if title else "📝 新动态",
                         "description": description[:200],
                         "url": url,
                         "picurl": (content_data.get("image_urls") or [""])[0]

@@ -122,6 +122,7 @@ class FeishuChannel(BaseChannel):
 
     def _send_dynamic(self, content_data: Dict[str, Any]) -> bool:
         """推送动态消息（使用卡片）"""
+        title = content_data.get("title", "")
         text = content_data.get("text", "")
         url = content_data.get("url", "")
         pub_time = content_data.get("pub_time", "")
@@ -152,11 +153,19 @@ class FeishuChannel(BaseChannel):
         # 构建卡片元素
         elements = []
 
+        # 标题（如果有）
+        if title:
+            elements.append({
+                "tag": "div",
+                "text": {"tag": "lark_md", "content": f"**{title}**"}
+            })
+
         # 文本内容
-        elements.append({
-            "tag": "div",
-            "text": {"tag": "plain_text", "content": display_text}
-        })
+        if display_text:
+            elements.append({
+                "tag": "div",
+                "text": {"tag": "plain_text", "content": display_text}
+            })
 
         # 添加图片
         for key in image_keys:
@@ -181,7 +190,7 @@ class FeishuChannel(BaseChannel):
         card = {
             "config": {"wide_screen_mode": True},
             "header": {
-                "title": {"tag": "plain_text", "text": "📝 新动态"},
+                "title": {"tag": "plain_text", "text": f"📝 {title}" if title else "📝 新动态"},
                 "template": "blue"
             },
             "elements": elements

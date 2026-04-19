@@ -63,6 +63,7 @@ class Dynamic(Base):
     dynamic_id = Column(String, unique=True, nullable=False)
     mid = Column(String, nullable=False)
     type = Column(Integer, nullable=True)  # 256=图文, 2=视频等
+    title = Column(String, nullable=True)  # 动态标题（图文动态可能有）
     text = Column(Text, nullable=True)  # 动态文本内容
     image_count = Column(Integer, default=0)  # 图片数量
     images_path = Column(Text, nullable=True)  # 本地图片路径 JSON

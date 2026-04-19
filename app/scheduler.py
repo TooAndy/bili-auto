@@ -168,6 +168,7 @@ def check_new_dynamics():
                     dynamic_id=dyn["dynamic_id"],
                     mid=dyn["mid"],
                     type=dyn.get("type", 0),
+                    title=dyn.get("title", ""),
                     text=dyn.get("text", ""),
                     image_count=len(dyn.get("images", [])),
                     images_path=json.dumps(dyn.get("images", []), ensure_ascii=False),
@@ -182,13 +183,14 @@ def check_new_dynamics():
                 pub_time_str = str(dyn["pub_time"]) if dyn.get("pub_time") else ""
                 push_content({
                     "type": "dynamic",
+                    "title": dyn.get("title", ""),
                     "text": dyn.get("text", ""),
                     "images": dyn.get("images", []),
                     "image_urls": dyn.get("image_urls", []),
                     "pub_time": pub_time_str,
                     "url": f"https://www.bilibili.com/opus/{dyn['dynamic_id']}"
                 }, ["feishu"])
-                logger.info("[推送] %s | %s...", dyn.get("sub_name", ""), (dyn.get("text", "") or "")[:50])
+                logger.info("[推送] %s | %s...", dyn.get("sub_name", ""), (dyn.get("text", "") or dyn.get("title", ""))[:50])
 
             db.commit()
             logger.info("[检测完成] 发现 %d 个新动态，%d 个错误", len(all_new_dynamics), error_count)

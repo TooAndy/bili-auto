@@ -327,6 +327,7 @@ def process_single_dynamic(dynamic_id: str):
         # 推送
         push_content({
             "type": "dynamic",
+            "title": dynamic.title or "",
             "text": dynamic.text,
             "images": image_paths,
             "image_urls": image_urls,

@@ -49,6 +49,7 @@ class TelegramChannel(BaseChannel):
 
     def _send_dynamic(self, content_data: Dict[str, Any]) -> bool:
         """推送动态消息"""
+        title = content_data.get("title", "")
         text = content_data.get("text", "")
         url = content_data.get("url", "")
         pub_time = content_data.get("pub_time", "")
@@ -58,7 +59,12 @@ class TelegramChannel(BaseChannel):
         if len(text) > 500:
             display_text += "..."
 
-        msg = f"📝 {display_text}\n\n"
+        # 构建消息，标题在前面（加粗）
+        if title:
+            msg = f"📝 *{title}*\n\n"
+        else:
+            msg = "📝 "
+        msg += f"{display_text}\n\n"
         if pub_time:
             msg += f"⏰ {pub_time}\n"
         msg += f"🔗 {url}"
