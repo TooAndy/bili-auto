@@ -12,6 +12,8 @@ from app.modules.push_channels.feishu import (
     upload_image_to_feishu,
     FeishuChannel,
 )
+from app.modules.push_channels.telegram import TelegramChannel
+from app.modules.push_channels.wechat import WechatChannel
 from app.modules.push_channels.registry import ChannelRegistry
 
 
@@ -194,3 +196,168 @@ class TestFeishuCardMessage:
         assert card["config"]["wide_screen_mode"] is True
         assert card["header"]["template"] == "blue"
         assert len(card["elements"]) == 2
+
+
+class TestTelegramChannel:
+    """测试 Telegram 渠道"""
+
+    def test_send_dynamic_with_title(self):
+        """测试：发送动态消息（带标题）"""
+        channel = TelegramChannel()
+
+        with patch.object(channel, 'send', wraps=channel.send):
+            with patch.object(channel, '_send_text', return_value=True) as mock_send:
+                # patch send 避免 Config 检查直接返回 False
+                with patch('app.modules.push_channels.telegram.Config') as mock_config:
+                    mock_config.TELEGRAM_TOKEN = "fake_token"
+                    mock_config.TELEGRAM_CHAT_ID = "fake_chat_id"
+
+                    result = channel.send({
+                        "type": "dynamic",
+                        "title": "动态标题",
+                        "text": "动态正文内容",
+                        "url": "https://bilibili.com/opus/123",
+                        "pub_time": "2024-03-31 18:00:00"
+                    })
+
+                    assert result is True
+                    mock_send.assert_called_once()
+                    call_text = mock_send.call_args[0][0]
+                    assert "动态标题" in call_text
+                    assert "动态正文内容" in call_text
+                    assert "*动态标题*" in call_text  # 加粗
+
+    def test_send_dynamic_without_title(self):
+        """测试：发送动态消息（无标题）"""
+        channel = TelegramChannel()
+
+        with patch.object(channel, '_send_text', return_value=True) as mock_send:
+            with patch('app.modules.push_channels.telegram.Config') as mock_config:
+                mock_config.TELEGRAM_TOKEN = "fake_token"
+                mock_config.TELEGRAM_CHAT_ID = "fake_chat_id"
+
+                result = channel.send({
+                    "type": "dynamic",
+                    "title": "",
+                    "text": "动态正文内容",
+                    "url": "https://bilibili.com/opus/123",
+                })
+
+                assert result is True
+                mock_send.assert_called_once()
+                call_text = mock_send.call_args[0][0]
+                assert "📝" in call_text
+                assert "动态正文内容" in call_text
+
+
+class TestWechatChannel:
+    """测试微信企业号渠道"""
+
+    def test_send_dynamic_with_title(self):
+        """测试：发送动态消息（带标题）"""
+        channel = WechatChannel()
+
+        with patch.object(channel, '_get_access_token', return_value="fake_token"):
+            with patch('requests.post') as mock_post:
+                mock_response = MagicMock()
+                mock_response.json.return_value = {"errcode": 0}
+                mock_post.return_value = mock_response
+
+                with patch('app.modules.push_channels.wechat.Config') as mock_config:
+                    mock_config.WECHAT_CORP_ID = "fake_corp_id"
+                    mock_config.WECHAT_CORP_SECRET = "fake_secret"
+                    mock_config.WECHAT_AGENT_ID = "123456"
+                    mock_config.WECHAT_TO_USER = "fake_user"
+
+                    result = channel.send({
+                        "type": "dynamic",
+                        "title": "动态标题",
+                        "text": "动态正文",
+                        "url": "https://bilibili.com/opus/123",
+                        "pub_time": "2024-03-31",
+                        "image_urls": []
+                    })
+
+                    assert result is True
+                    # json= 是关键字参数，从 call_args[1] 取
+                    call_json = mock_post.call_args[1]["json"]
+                    assert "📝 动态标题" in call_json["news"]["articles"][0]["title"]
+
+    def test_send_dynamic_without_title(self):
+        """测试：发送动态消息（无标题）"""
+        channel = WechatChannel()
+
+        with patch.object(channel, '_get_access_token', return_value="fake_token"):
+            with patch('requests.post') as mock_post:
+                mock_response = MagicMock()
+                mock_response.json.return_value = {"errcode": 0}
+                mock_post.return_value = mock_response
+
+                with patch('app.modules.push_channels.wechat.Config') as mock_config:
+                    mock_config.WECHAT_CORP_ID = "fake_corp_id"
+                    mock_config.WECHAT_CORP_SECRET = "fake_secret"
+                    mock_config.WECHAT_AGENT_ID = "123456"
+                    mock_config.WECHAT_TO_USER = "fake_user"
+
+                    result = channel.send({
+                        "type": "dynamic",
+                        "title": "",
+                        "text": "动态正文",
+                        "url": "https://bilibili.com/opus/123",
+                        "image_urls": []
+                    })
+
+                    assert result is True
+                    call_json = mock_post.call_args[1]["json"]
+                    assert call_json["news"]["articles"][0]["title"] == "📝 新动态"
+
+
+class TestFeishuChannelDynamic:
+    """测试飞书渠道动态推送（标题相关）"""
+
+    def test_send_dynamic_with_title(self):
+        """测试：发送动态消息（带标题，标题加粗）"""
+        channel = FeishuChannel()
+
+        with patch.object(channel, '_send_card', return_value=True) as mock_send:
+            result = channel.send({
+                "type": "dynamic",
+                "title": "动态标题",
+                "text": "动态正文",
+                "url": "https://bilibili.com/opus/123",
+                "pub_time": "2024-03-31 18:00:00"
+            })
+
+            assert result is True
+            mock_send.assert_called_once()
+            card = mock_send.call_args[0][0]
+            # 标题在 elements 第一位，lark_md 格式加粗
+            elements = card["elements"]
+            assert elements[0]["tag"] == "div"
+            assert "**动态标题**" in elements[0]["text"]["content"]
+            # 卡片 header 使用标题
+            assert "📝 动态标题" in card["header"]["title"]["text"]
+
+    def test_send_dynamic_title_only(self):
+        """测试：发送动态消息（只有标题，没有正文）"""
+        channel = FeishuChannel()
+
+        with patch.object(channel, '_send_card', return_value=True) as mock_send:
+            result = channel.send({
+                "type": "dynamic",
+                "title": "纯标题",
+                "text": "",
+                "url": "https://bilibili.com/opus/123",
+            })
+
+            assert result is True
+            mock_send.assert_called_once()
+            card = mock_send.call_args[0][0]
+            elements = card["elements"]
+            # 第一位是标题
+            assert "**纯标题**" in elements[0]["text"]["content"]
+            # 只有标题元素 + 链接，没有正文元素（正文为空时不加正文 div）
+            # elements = [标题div, 链接div] 共2个
+            div_elements = [e for e in elements if e.get("tag") == "div"]
+            assert len(div_elements) == 2  # 标题 + 链接
+
