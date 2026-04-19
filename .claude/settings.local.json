@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit -m \"feat: 支持在 .env 中配置视频和动态检测间隔:*)",
+      "Bash(uv run:*)",
+      "Bash(git commit:*)",
+      "Bash(python3 -c \"from app.models.database import init_db; init_db\\(\\); print\\(''DB init ok''\\)\")",
+      "Bash(python3 -c \":*)",
+      "Bash(python3 scripts/migrate_paths.py)",
+      "mcp__playwright__browser_navigate",
+      "WebFetch(domain:blog.csdn.net)",
+      "WebSearch",
+      "Skill(playwright-cli)",
+      "Skill(playwright-cli:*)",
+      "Bash(npx playwright-cli:*)",
+      "Bash(python test_feishu.py)",
+      "Bash(python test_feishu_simple.py)",
+      "Bash(python debug_feishu.py)",
+      "Bash(python test_feishu_final.py)",
+      "Bash(python test_feishu_config.py)",
+      "Bash(sqlite3 /Users/aniss/Code/bili-auto/data/bili.db \".schema videos\")",
+      "Bash(sqlite3 /Users/aniss/Code/bili-auto/data/bili.db \"SELECT id, bvid, title, status, has_subtitle, has_audio, has_video, audio_path, video_path FROM videos WHERE bvid IN \\(''BV1hMXvBJEUq'', ''BV16WXhBQE57''\\);\")",
+      "Bash(python3 scripts/reset_videos_status.py)",
+      "WebFetch(domain:socialsisteryi.github.io)",
+      "Bash(python3 -c \"from app.modules.feishu_docs import push_video_summary_to_doc; print\\('Import OK'\\)\")"
+    ]
+  }
+}
