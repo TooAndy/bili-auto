@@ -5,7 +5,6 @@ import asyncio
 from datetime import datetime
 from app.utils.logger import get_logger
 from app.models.database import get_db, Subscription, Video, Dynamic
-from app.modules.bilibili import fetch_channel_videos
 from app.modules.dynamic import DynamicFetcher
 from app.modules.bilibili_auth import get_auth_manager
 from config import Config
@@ -56,60 +55,6 @@ def check_and_refresh_cookie():
         logger.error(f"Cookie 刷新过程出错: {e}", exc_info=True)
         return None
 
-
-def check_new_videos():
-    """定时检测所有UP主的新视频"""
-    logger.info("[检测] 开始检查新视频...")
-    
-    try:
-        db = get_db()
-        subscriptions = db.query(Subscription).filter_by(is_active=True).all()
-        
-        if not subscriptions:
-            logger.warning("[检测] 未配置任何UP主订阅")
-            return
-        
-        new_count = 0
-        error_count = 0
-        
-        for sub in subscriptions:
-            try:
-                videos = fetch_channel_videos(sub.mid, limit=10)
-                logger.debug("[检测] 用户 %s(%s) 获得 %d 个视频", 
-                            sub.name, sub.mid, len(videos))
-                
-                for v in videos:
-                    # 检查是否已存在
-                    existing = db.query(Video).filter_by(bvid=v["bvid"]).first()
-                    if existing:
-                        logger.debug("[检测] 视频已存在: %s", v["bvid"])
-                        continue
-                    
-                    # 新视频，添加到数据库
-                    new_video = Video(
-                        bvid=v["bvid"],
-                        title=v["title"],
-                        mid=sub.mid,
-                        pub_time=v.get("pubdate", 0),
-                        status="pending"
-                    )
-                    db.add(new_video)
-                    new_count += 1
-                    logger.info("[新视频] %s | %s (%s)", 
-                               sub.name, v["title"], v["bvid"])
-                
-                sub.last_check_time = datetime.utcnow()
-                
-            except Exception as e:
-                error_count += 1
-                logger.error("[检测] 检查用户 %s(%s) 失败: %s", 
-                           sub.mid, sub.name, e, exc_info=True)
-        
-        db.commit()
-        logger.info("[检测完成] 发现 %d 个新视频，%d 个错误", new_count, error_count)
-        
-    except Exception as e:
-        logger.error("[检测] 异常: %s", e, exc_info=True)
 
 
 def check_new_dynamics():
@@ -226,15 +171,7 @@ def start_scheduler():
     logger.info("=" * 50)
     logger.info("定时任务调度启动")
 
-    video_interval = Config.VIDEO_CHECK_INTERVAL
     dynamic_interval = Config.DYNAMIC_CHECK_INTERVAL
-
-    # 视频检测
-    if video_interval > 0:
-        logger.info("视频检测频率: 每%d分钟", video_interval)
-        schedule.every(video_interval).minutes.do(check_new_videos)
-    else:
-        logger.info("视频检测: 已禁用 (VIDEO_CHECK_INTERVAL=%d)", video_interval)
 
     # 动态检测
     if dynamic_interval > 0:
