@@ -109,7 +109,8 @@ class WBISigner:
                 self._mixin_key = self._get_mixin_key(img_key, sub_key)
                 self._last_refresh = current_time
             else:
-                logger.warning("获取 WBI 密钥失败，使用缓存密钥")
+                logger.error("无法获取 WBI 密钥，Cookie 可能已过期或无效")
+                raise ValueError("WBI 密钥获取失败，无法进行签名")
 
         return self._mixin_key
 
