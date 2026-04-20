@@ -22,6 +22,8 @@ env:
   FEISHU_RECEIVE_ID: ${{ secrets.FEISHU_RECEIVE_ID }}
   FEISHU_DOCS_ENABLED: "true"
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  OPENAI_MODEL: ${{ secrets.OPENAI_API_KEY }}
+  OPENAI_BASE_URL: ${{ secrets.OPENAI_API_KEY }}
 
 jobs:
   integration-tests:
