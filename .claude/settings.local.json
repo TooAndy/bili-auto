@@ -23,7 +23,11 @@
       "Bash(sqlite3 /Users/aniss/Code/bili-auto/data/bili.db \"SELECT id, bvid, title, status, has_subtitle, has_audio, has_video, audio_path, video_path FROM videos WHERE bvid IN \\(''BV1hMXvBJEUq'', ''BV16WXhBQE57''\\);\")",
       "Bash(python3 scripts/reset_videos_status.py)",
       "WebFetch(domain:socialsisteryi.github.io)",
-      "Bash(python3 -c \"from app.modules.feishu_docs import push_video_summary_to_doc; print\\('Import OK'\\)\")"
+      "Bash(python3 -c \"from app.modules.feishu_docs import push_video_summary_to_doc; print\\('Import OK'\\)\")",
+      "Skill(gstack)",
+      "Skill(gstack:*)",
+      "Skill(plan-ceo-review)",
+      "Skill(plan-ceo-review:*)"
     ]
   }
 }
