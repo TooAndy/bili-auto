@@ -10,6 +10,7 @@ from app.modules.push_channels import (  # noqa: F401
     push_content,
     list_channels,
     get_channel,
+    get_enabled_channels,
 )
 
 # 从飞书渠道导出辅助函数（供 feishu_docs.py 使用）
