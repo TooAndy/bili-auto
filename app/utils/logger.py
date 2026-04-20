@@ -1,5 +1,6 @@
 import logging
 import logging.handlers
+import time
 
 from config import Config
 
@@ -12,9 +13,16 @@ def get_logger(name: str = "bili") -> logging.Logger:
     logger.setLevel(getattr(logging, Config.LOG_LEVEL.upper(), logging.INFO))
 
     log_dir = "logs"
-    handler = logging.handlers.RotatingFileHandler(
-        f"{log_dir}/bili.log", maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"
+    # 按天轮转，保留30天
+    handler = logging.handlers.TimedRotatingFileHandler(
+        when="midnight",
+        interval=1,
+        backupCount=30,
+        filename=f"{log_dir}/bili.log",
+        encoding="utf-8",
     )
+    # 轮转后在新文件名前加日期后缀
+    handler.suffix = "%Y-%m-%d.log"
     handler.setLevel(logging.INFO)
     format_str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     handler.setFormatter(logging.Formatter(format_str))
