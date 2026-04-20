@@ -18,6 +18,7 @@ dependencies = [
   "pydantic==2.12.5",
   "python-dotenv==1.2.2",
   "python-telegram-bot==20.6",
+  "qrcode>=7.4",
   "requests==2.31.0",
   "schedule==1.2.0",
   "sqlalchemy==2.0.48",
@@ -35,6 +36,7 @@ test = [
 
 [project.scripts]
 bili-rules = "app.tools.classification_rules:app"
+bili-login = "app.cli:login"
 
 [tool.setuptools]
 packages = ["app", "app.modules", "app.models", "app.tools", "app.utils"]

@@ -71,7 +71,20 @@ bili-auto/
 uv sync
 ```
 
-### 2. 配置环境
+### 2. 登录 B站（获取 Cookie 和 refresh_token）
+
+```bash
+uv run python -m app.cli login
+```
+
+二维码会推送到已配置的飞书/Telegram频道，也可以在终端看到链接。
+
+**为什么需要登录？**
+- Cookie 用于访问 B站 API，检测 UP 主新视频和动态
+- `refresh_token` 用于自动刷新 Cookie，避免 Cookie 过期后需要手动重新登录
+- 扫码登录获取的 Cookie 和 refresh_token 是配套的，能确保刷新成功
+
+### 3. 配置环境
 
 复制 `.env.example` 为 `.env` 并填入配置：
 
