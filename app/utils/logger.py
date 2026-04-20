@@ -1,5 +1,6 @@
 import logging
 import logging.handlers
+import os
 import time
 
 from config import Config
@@ -13,6 +14,7 @@ def get_logger(name: str = "bili") -> logging.Logger:
     logger.setLevel(getattr(logging, Config.LOG_LEVEL.upper(), logging.INFO))
 
     log_dir = "logs"
+    os.makedirs(log_dir, exist_ok=True)
     # 按天轮转，保留30天
     handler = logging.handlers.TimedRotatingFileHandler(
         when="midnight",
