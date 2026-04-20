@@ -228,17 +228,19 @@ scheduler (可配置周期)
 
 ```bash
 # 登录 B站账号
-bili login
+bili login                    # 扫码登录，获取 refresh_token
 
 # 订阅管理
 bili sub list                  # 查看订阅列表
-bili sub add <mid> <name>      # 添加订阅
-bili sub toggle <mid>         # 启用/禁用订阅
+bili sub add <mid> <name> [notes]  # 添加订阅
+bili sub add-bulk              # 批量添加（交互式）
+bili sub toggle <mid>          # 启用/禁用订阅
 bili sub delete <mid>          # 删除订阅
+bili sub update                # 更新所有订阅的视频列表
 
 # 视频下载
 bili download bv <bvid>        # 下载单个视频
-bili download up <mid>         # 下载 UP 主所有视频
+bili download up <mid>        # 下载 UP 主所有视频
 
 # 清理工具
 bili clear videos              # 清理视频记录
@@ -248,6 +250,24 @@ bili-rules add --uploader 呆咪 --pattern "投资记录" --folder "每日投资
 
 # 测试 ASR 识别
 uv run scripts/test_asr_file.py
+```
+
+### 推送渠道配置
+
+通过 `PUSH_CHANNELS` 环境变量配置启用的渠道：
+
+```bash
+# 默认只飞书（不设置时）
+PUSH_CHANNELS=feishu
+
+# 多个渠道
+PUSH_CHANNELS=feishu,telegram,wechat
+
+# 只微信
+PUSH_CHANNELS=wechat
+
+# 关闭所有推送（留空）
+PUSH_CHANNELS=
 ```
 
 ## 🐛 调试
