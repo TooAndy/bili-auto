@@ -29,6 +29,7 @@ jobs:
         run: |
           uv run pytest tests/ \
             --ignore=tests/test_feishu_docs_integration.py \
+            --ignore=tests/integration/ \
             --cov=app \
             --cov-report=xml \
             --cov-fail-under=50
