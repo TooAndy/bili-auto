@@ -10,6 +10,62 @@ import pytest
 from app.modules import downloader
 
 
+class TestSanitizeFilename:
+    """测试 _sanitize_filename 函数"""
+
+    def test_remove_windows_invalid_chars(self):
+        """测试：移除 Windows 不允许的字符"""
+        assert downloader._sanitize_filename("视频:标题?") == "视频标题"
+        assert downloader._sanitize_filename("a<b>c") == "abc"
+        assert downloader._sanitize_filename('a"b|c') == "abc"
+
+    def test_replace_slashes(self):
+        """测试：斜杠替换为减号"""
+        assert downloader._sanitize_filename("a/b\\c") == "a-b-c"
+
+    def test_spaces_to_underscores(self):
+        """测试：空格替换为下划线"""
+        assert downloader._sanitize_filename("hello world") == "hello_world"
+
+    def test_strip_leading_trailing(self):
+        """测试：移除首尾的点和下划线"""
+        assert downloader._sanitize_filename("..hello..") == "hello"
+        assert downloader._sanitize_filename("_test_") == "test"
+
+    def test_truncate_long_name(self):
+        """测试：超长名称被截断"""
+        long_name = "a" * 100
+        result = downloader._sanitize_filename(long_name, max_length=50)
+        assert len(result) <= 50
+
+    def test_normal_name_unchanged(self):
+        """测试：正常名称保持不变"""
+        assert downloader._sanitize_filename("正常名称") == "正常名称"
+
+
+class TestGenerateFilename:
+    """测试 _generate_filename 函数"""
+
+    def test_generate_with_pub_time(self):
+        """测试：带发布时间生成文件名"""
+        result = downloader._generate_filename("BV123", "测试标题", pub_time=1704067200)
+        assert "20240101" in result
+        assert "BV123" in result
+        assert "测试标题" in result
+        assert result.endswith(".mp4")
+
+    def test_generate_without_pub_time(self):
+        """测试：不带发布时间使用 unknown"""
+        result = downloader._generate_filename("BV456", "标题")
+        assert "unknown" in result
+        assert "BV456" in result
+
+    def test_generate_custom_ext(self):
+        """测试：自定义扩展名"""
+        result = downloader._generate_filename("BV123", "标题", ext="m4a")
+        assert result.endswith(".m4a")
+
+
 def test_download_audio_skip_existing(temp_dir, sample_wav_path):
     """测试：如果文件已存在，跳过下载"""
     # 先创建一个"已存在"的文件

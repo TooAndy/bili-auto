@@ -3,6 +3,7 @@
 """
 import pytest
 from datetime import datetime
+from unittest.mock import MagicMock, patch
 
 from app.modules.dynamic import DynamicFetcher, should_push_dynamic
 
@@ -278,3 +279,129 @@ class TestShouldPushDynamic:
     def test_title_no_text_passes(self):
         """测试：有标题但无正文可以通过（主要用例：纯标题 OPUS 动态）"""
         assert should_push_dynamic({"title": "这是一个有意义的标题", "text": ""}) is True
+
+
+class TestDynamicFetcherMethods:
+    """测试 DynamicFetcher 其他方法"""
+
+    def test_close_session(self):
+        """测试：关闭 Session"""
+        fetcher = DynamicFetcher()
+        fetcher.close()  # 不应该抛异常
+
+    def test_context_manager(self):
+        """测试：上下文管理器"""
+        with DynamicFetcher() as fetcher:
+            assert fetcher is not None
+
+    def test_download_images_empty(self):
+        """测试：下载空图片列表"""
+        fetcher = DynamicFetcher()
+        dynamic = {"dynamic_id": "test123", "image_urls": []}
+        result = fetcher.download_images(dynamic)
+        assert result["images"] == []
+
+    def test_download_images_success(self):
+        """测试：成功下载图片"""
+        fetcher = DynamicFetcher()
+
+        with patch.object(fetcher.session, 'get') as mock_get:
+            mock_response = MagicMock()
+            mock_response.content = b"fake_image_data"
+            mock_response.raise_for_status = MagicMock()
+            mock_get.return_value = mock_response
+
+            dynamic = {
+                "dynamic_id": "test123",
+                "image_urls": ["https://example.com/image1.jpg"]
+            }
+            result = fetcher.download_images(dynamic)
+
+            assert len(result["images"]) == 1
+            assert "test123_0.jpg" in result["images"][0]
+
+    def test_download_images_partial_failure(self):
+        """测试：部分图片下载失败"""
+        fetcher = DynamicFetcher()
+
+        with patch.object(fetcher.session, 'get') as mock_get:
+            mock_response = MagicMock()
+            mock_response.content = b"fake_image_data"
+            mock_response.raise_for_status = MagicMock()
+            # 第二次调用抛出异常
+            mock_get.side_effect = [mock_response, Exception("network error")]
+
+            dynamic = {
+                "dynamic_id": "test456",
+                "image_urls": [
+                    "https://example.com/image1.jpg",
+                    "https://example.com/image2.jpg"
+                ]
+            }
+            result = fetcher.download_images(dynamic)
+
+            # 第一张图成功，第二张失败
+            assert len(result["images"]) == 1
+
+    def test_fetch_dynamic_success(self):
+        """测试：成功获取动态"""
+        fetcher = DynamicFetcher()
+
+        with patch.object(fetcher.wbi_signer, 'sign', return_value={"host_mid": "123"}):
+            with patch.object(fetcher.session, 'get') as mock_get:
+                mock_response = MagicMock()
+                mock_response.json.return_value = {
+                    "code": 0,
+                    "data": {
+                        "items": [
+                            {
+                                "id_str": "dyn_001",
+                                "type": "DYNAMIC_TYPE_OPUS",
+                                "modules": {
+                                    "module_author": {"pub_ts": "1700000000", "pub_time": "2024-01-01"},
+                                    "module_dynamic": {
+                                        "major": {
+                                            "type": "MAJOR_TYPE_OPUS",
+                                            "opus": {
+                                                "title": "测试标题",
+                                                "summary": {"text": "测试正文"},
+                                                "pics": []
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+                mock_get.return_value = mock_response
+
+                result = fetcher.fetch_dynamic("12345")
+                assert len(result) == 1
+                assert result[0]["dynamic_id"] == "dyn_001"
+
+    def test_fetch_dynamic_api_error(self):
+        """测试：API 返回错误码"""
+        fetcher = DynamicFetcher()
+
+        with patch.object(fetcher.wbi_signer, 'sign', return_value={"host_mid": "123"}):
+            with patch.object(fetcher.session, 'get') as mock_get:
+                mock_response = MagicMock()
+                mock_response.json.return_value = {"code": -101, "message": "error"}
+                mock_get.return_value = mock_response
+
+                result = fetcher.fetch_dynamic("12345")
+                assert result == []
+
+    def test_fetch_dynamic_with_offset(self):
+        """测试：带 offset 分页获取动态"""
+        fetcher = DynamicFetcher()
+
+        with patch.object(fetcher.wbi_signer, 'sign', return_value={"host_mid": "123", "offset": "abc"}):
+            with patch.object(fetcher.session, 'get') as mock_get:
+                mock_response = MagicMock()
+                mock_response.json.return_value = {"code": 0, "data": {"items": []}}
+                mock_get.return_value = mock_response
+
+                result = fetcher.fetch_dynamic("12345", offset="abc")
+                assert result == []
