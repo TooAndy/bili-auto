@@ -7,9 +7,7 @@ B站认证和Cookie管理模块
 参考文章: https://blog.csdn.net/gitblog_00169/article/details/152153957
 """
 
-import asyncio
 import json
-import logging
 import os
 import time
 import binascii
@@ -211,7 +209,6 @@ JNrRuoEUXpabUzGB8QIDAQAB
             (是否需要刷新, 时间戳)
         """
         try:
-            from config import Config
 
             # 提取bili_jct作为csrf
             csrf = self._extract_bili_jct(cookie)
@@ -293,7 +290,7 @@ JNrRuoEUXpabUzGB8QIDAQAB
                                     logger.debug(f"refresh_csrf: {refresh_csrf[:30]}...")
                                     return refresh_csrf
 
-                        logger.warning(f"未能从 HTML 中提取 refresh_csrf")
+                        logger.warning("未能从 HTML 中提取 refresh_csrf")
                         logger.debug(f"响应内容: {text[:300]}")
                     else:
                         logger.error(f"获取 refresh_csrf 失败，HTTP状态码: {resp.status}")

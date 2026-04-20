@@ -1,7 +1,6 @@
 import logging
 import logging.handlers
 import os
-import time
 
 from config import Config
 

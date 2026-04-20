@@ -23,9 +23,9 @@ from app.modules.push_channels import telegram  # noqa: F401
 from app.modules.push_channels.registry import (
     get_channel,
     list_channels,
-    send_to_channel,
-    send_to_channels,
 )
+
+__all__ = ["push_content", "get_channel", "list_channels", "push_video_to_feishu", "push_dynamic_to_feishu"]
 
 
 def push_content(content_data: dict, channels: list) -> bool:

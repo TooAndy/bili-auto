@@ -1,4 +1,3 @@
-import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -76,7 +75,7 @@ def transcribe_audio(audio_path: str) -> str:
             try:
                 Path(temp_audio).unlink()
                 logger.debug("已清理临时音频文件")
-            except:
+            except Exception:
                 pass
         return result
 
@@ -151,7 +150,7 @@ def _transcribe_with_cpp(audio_path: str) -> str:
             # 清理输出文件
             try:
                 output_file.unlink()
-            except:
+            except Exception:
                 pass
         else:
             # 如果没有输出文件，从 stdout 解析
@@ -166,7 +165,7 @@ def _transcribe_with_cpp(audio_path: str) -> str:
             Path(f"{output_prefix}.txt").unlink(missing_ok=True)
             if temp_wav:
                 temp_wav.unlink(missing_ok=True)
-        except:
+        except Exception:
             pass
 
 

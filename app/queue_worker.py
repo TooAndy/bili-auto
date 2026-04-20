@@ -8,12 +8,11 @@ from functools import wraps
 from app.utils.logger import get_logger
 from app.models.database import get_db, Video, Dynamic, Subscription
 from app.modules.subtitle import get_subtitles
-from app.modules.downloader import download_audio, _generate_filename
 from app.modules.whisper_ai import transcribe_audio
 from app.modules.processor import process_text
 from app.modules.push import push_content
 from app.modules.dynamic import should_push_dynamic
-from app.utils.paths import PathManager, get_path_manager
+from app.utils.paths import get_path_manager
 
 logger = get_logger("queue_worker")
 
@@ -394,7 +393,7 @@ def start_queue_worker(max_workers: int = 3):
                         status="failed"
                     ).filter(Dynamic.attempt_count < 3).limit(2).all()
 
-                    total_pending = len(pending_dynamics) + len(pending_videos)
+                    _total_pending = len(pending_dynamics) + len(pending_videos)
                     total_retry = len(retry_videos) + len(retry_dynamics)
 
                     if loop_count % 6 == 0:  # 每30秒（6个5秒循环）打印一次统计

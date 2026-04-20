@@ -8,7 +8,7 @@
 import io
 import re
 import requests
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from datetime import datetime
 from app.utils.logger import get_logger
 from config import Config
@@ -35,7 +35,7 @@ def _classify_title(uploader_name: str, title: str) -> Optional[str]:
         rules = session.query(ClassificationRule).filter(
             (ClassificationRule.uploader_name == uploader_name) |
             (ClassificationRule.uploader_name == "*"),
-            ClassificationRule.is_active == True
+            ClassificationRule.is_active is True
         ).order_by(ClassificationRule.priority).all()
 
         for rule in rules:
@@ -407,7 +407,7 @@ def push_video_summary_to_doc(
     # 2. 确保文件夹存在
     folder_token = _ensure_category_folder_exists(uploader_name, category)
     if not folder_token:
-        logger.warning(f"无法获取文件夹 token，使用根目录上传")
+        logger.warning("无法获取文件夹 token，使用根目录上传")
         folder_token = Config.FEISHU_DOCS_FOLDER_TOKEN if Config.FEISHU_DOCS_FOLDER_TOKEN else None
 
     # 3. 构建完整标题（使用视频发布时间，而非上传时间）

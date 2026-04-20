@@ -10,17 +10,10 @@ B站扫码登录命令
 
 import io
 import json
-import os
 import sys
 import requests
 import time
 from pathlib import Path
-
-# 添加项目根目录到 sys.path，确保能导入 config
-project_root = Path(__file__).parent.parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
-
 import typer
 
 cli = typer.Typer(help="B站自动化工具")
@@ -260,7 +253,7 @@ def login():
         refresh_token = data.get("refresh_token", "") if isinstance(data, dict) else ""
 
         if top_code == 0 and refresh_token:
-            typer.echo(f"\n✓ 登录成功!")
+            typer.echo("\n✓ 登录成功!")
             typer.echo(f"refresh_token: {refresh_token[:50]}...")
 
             # 获取 Cookie

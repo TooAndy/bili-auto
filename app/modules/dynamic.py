@@ -1,5 +1,4 @@
 import requests
-import json
 from datetime import datetime
 from pathlib import Path
 from app.utils.logger import get_logger
@@ -185,7 +184,7 @@ class DynamicFetcher:
 
         # 获取发布时间
         pub_ts_str = module_author.get("pub_ts", "0")
-        pub_time = module_author.get("pub_time", "")
+        _pub_time = module_author.get("pub_time", "")
 
         # 将时间戳转换为 datetime 对象（pub_ts 可能是字符串）
         pub_datetime = None

@@ -10,12 +10,15 @@ from app.modules.push_channels import (
     push_content,
     list_channels,
     get_channel,
-    send_to_channel,
-    send_to_channels,
 )
 
 # 从飞书渠道导出辅助函数（供 feishu_docs.py 使用）
 from app.modules.push_channels.feishu import get_feishu_tenant_access_token
 
 # 保留原有函数作为别名（兼容旧代码）
-push_feishu_text = lambda text: get_channel("feishu").send_text(text) if get_channel("feishu") else False
+def _push_feishu_text(text: str) -> bool:
+    channel = get_channel("feishu")
+    return channel.send_text(text) if channel else False
+
+
+push_feishu_text = _push_feishu_text

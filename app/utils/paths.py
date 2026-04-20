@@ -5,7 +5,7 @@
 import re
 from pathlib import Path
 from datetime import datetime
-from typing import Optional, Tuple
+from typing import Optional
 
 
 def _sanitize_dirname(name: str, max_length: int = 50) -> str:

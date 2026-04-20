@@ -1,11 +1,10 @@
 import subprocess
-import os
 import tempfile
 import re
 from datetime import datetime
 from pathlib import Path
 from app.utils.logger import get_logger
-from app.utils.paths import PathManager, get_path_manager
+from app.utils.paths import get_path_manager
 from app.models.database import get_db, Subscription
 from config import Config
 
@@ -172,7 +171,7 @@ def download_audio(bvid: str, output_dir: str = "data/audio", title: str = None,
         if cookie_file and cookie_file.exists():
             try:
                 cookie_file.unlink()
-            except:
+            except Exception:
                 pass
 
 
@@ -247,7 +246,7 @@ def download_video(bvid: str, quality: str = DEFAULT_QUALITY, output_dir: str = 
         if cookie_file and cookie_file.exists():
             try:
                 cookie_file.unlink()
-            except:
+            except Exception:
                 pass
 
 
@@ -307,12 +306,12 @@ def get_uploader_name_by_mid(mid: str) -> str:
         sub = db.query(Subscription).filter_by(mid=mid).first()
         if sub and sub.name:
             return sub.name
-    except:
+    except Exception:
         pass
     finally:
         try:
             db.close()
-        except:
+        except Exception:
             pass
     return f"UP主_{mid}"
 
@@ -390,7 +389,7 @@ def download_video_new(
         if cookie_file and cookie_file.exists():
             try:
                 cookie_file.unlink()
-            except:
+            except Exception:
                 pass
 
 
@@ -461,5 +460,5 @@ def download_audio_new(
         if cookie_file and cookie_file.exists():
             try:
                 cookie_file.unlink()
-            except:
+            except Exception:
                 pass
