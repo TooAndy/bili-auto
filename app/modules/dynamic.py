@@ -106,6 +106,7 @@ class DynamicFetcher:
         text = ""
         title = ""
         image_urls = []
+        bvid = None
 
         # 根据 major.type 判断内容类型（而不是 dynamic_type_str）
         major = module_dynamic.get("major") or {}
@@ -134,6 +135,7 @@ class DynamicFetcher:
             archive = major.get("archive") or {}
             title = archive.get("title", "")
             text = archive.get("desc", "")
+            bvid = archive.get("bvid")
 
         # MAJOR_TYPE_COMMON - 普通内容（文字或图片）
         elif major_type == "MAJOR_TYPE_COMMON":
@@ -159,6 +161,7 @@ class DynamicFetcher:
                 title = archive.get("title", "")
                 desc = archive.get("desc", "")
                 text = desc
+                bvid = archive.get("bvid")
             elif dynamic_type_str in ["DYNAMIC_TYPE_WORD", "DYNAMIC_TYPE_DRAW", "DYNAMIC_TYPE_OPUS"]:
                 opus = major.get("opus") or {}
                 if opus:
@@ -193,7 +196,7 @@ class DynamicFetcher:
         except (ValueError, TypeError):
             pass
 
-        return {
+        result = {
             "dynamic_id": dynamic_id,
             "type": dynamic_type_str,
             "title": title,
@@ -203,6 +206,9 @@ class DynamicFetcher:
             "pub_ts": pub_ts,
             "images": []
         }
+        if bvid:
+            result["bvid"] = bvid
+        return result
 
     def download_images(self, dynamic: dict) -> dict:
         images = []
