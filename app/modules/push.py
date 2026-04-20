@@ -6,14 +6,14 @@
 """
 
 # 重新导出新接口，保持向后兼容
-from app.modules.push_channels import (
+from app.modules.push_channels import (  # noqa: F401
     push_content,
     list_channels,
     get_channel,
 )
 
 # 从飞书渠道导出辅助函数（供 feishu_docs.py 使用）
-from app.modules.push_channels.feishu import get_feishu_tenant_access_token
+from app.modules.push_channels.feishu import get_feishu_tenant_access_token  # noqa: F401
 
 # 保留原有函数作为别名（兼容旧代码）
 def _push_feishu_text(text: str) -> bool:
