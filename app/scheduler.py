@@ -175,9 +175,31 @@ def check_new_dynamics():
                     image_urls=json.dumps(dyn.get("image_urls", []), ensure_ascii=False),
                     pub_time=dyn.get("pub_time"),
                     status="sent",
-                    pushed_at=datetime.utcnow()
+                    pushed_at=datetime.utcnow(),
+                    video_bvid=dyn.get("bvid")
                 )
                 db.add(new_dynamic)
+
+                # 如果是视频动态，同时创建 Video 记录
+                if dyn.get("bvid"):
+                    try:
+                        existing_video = db.query(Video).filter_by(bvid=dyn["bvid"]).first()
+                        if not existing_video:
+                            pub_time = dyn.get("pub_ts") or dyn.get("pub_time")
+                            new_video = Video(
+                                bvid=dyn["bvid"],
+                                title=dyn.get("title") or "",
+                                mid=dyn.get("mid"),
+                                pub_time=pub_time,
+                                status="pending"
+                            )
+                            db.add(new_video)
+                            logger.info("[视频动态] %s | %s (%s) → 创建 Video 记录",
+                                        dyn.get("sub_name", ""), dyn.get("title", ""), dyn["bvid"])
+                        else:
+                            logger.info("[视频动态] %s 已存在，跳过", dyn["bvid"])
+                    except Exception as e:
+                        logger.error("[视频动态] 创建 Video 记录失败: %s", e)
 
                 # 立即推送（按时间顺序）
                 pub_time_str = str(dyn["pub_time"]) if dyn.get("pub_time") else ""
