@@ -133,24 +133,3 @@ def test_push_video_summary_real_api():
 
     print(f"\n✅ 视频总结文档创建成功!")
     print(f"   文件链接: {result['url']}")
-
-
-if __name__ == "__main__":
-    if not is_feishu_configured():
-        print("❌ 飞书配置不完整，请检查 .env 文件")
-        print("需要配置: FEISHU_APP_ID, FEISHU_APP_SECRET, FEISHU_DOCS_ENABLED=true")
-        sys.exit(1)
-
-    print("运行飞书文档集成测试...")
-
-    try:
-        test_upload_markdown_real_api()
-        test_push_video_summary_real_api()
-        print("\n" + "=" * 70)
-        print("✅ 所有集成测试通过!")
-        print("=" * 70)
-    except Exception as e:
-        print(f"\n❌ 测试失败: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)

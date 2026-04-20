@@ -69,6 +69,8 @@ omit = [
   "*/tools/classification_rules.py",
   # 外部依赖模块
   "*/app/modules/whisper_ai.py",
+  # CLI 命令，仅用于扫码登录，不做单元测试
+  "*/app/cli.py",
 ]
 
 [tool.coverage.report]
