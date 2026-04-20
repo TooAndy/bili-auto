@@ -27,7 +27,8 @@
       "Skill(gstack)",
       "Skill(gstack:*)",
       "Skill(plan-ceo-review)",
-      "Skill(plan-ceo-review:*)"
+      "Skill(plan-ceo-review:*)",
+      "mcp__MiniMax__web_search"
     ]
   }
 }
