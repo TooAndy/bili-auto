@@ -62,6 +62,7 @@ class Dynamic(Base):
     id = Column(Integer, primary_key=True)
     dynamic_id = Column(String, unique=True, nullable=False)
     mid = Column(String, nullable=False)
+    video_bvid = Column(String, nullable=True)  # 关联视频的 bvid（视频动态时填充）
     type = Column(Integer, nullable=True)  # 256=图文, 2=视频等
     title = Column(String, nullable=True)  # 动态标题（图文动态可能有）
     text = Column(Text, nullable=True)  # 动态文本内容
