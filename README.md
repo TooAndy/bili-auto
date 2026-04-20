@@ -168,7 +168,22 @@ uv run python main.py
 **支持的渠道**:
 - 飞书（应用推送）
 - Telegram
-- 微信企业号
+- 微信企业号（机器人 webhook，不限制 IP）
+
+**配置推送渠道**:
+```bash
+# 在 .env 中设置，不设置则默认飞书
+PUSH_CHANNELS=feishu,telegram,wechat
+# 或只启用微信
+PUSH_CHANNELS=wechat
+```
+
+### 微信企业号配置
+使用企业微信机器人，无需配置可信 IP：
+```bash
+WECHAT_WEBHOOK_KEY=你的机器人webhook_key
+```
+获取方式：企业微信管理后台 → 应用管理 → 创建机器人 → 复制 webhook 地址中的 key
 
 ## 🛠️ 核心工作流
 
@@ -212,26 +227,27 @@ scheduler (可配置周期)
 ## 📝 常用命令
 
 ```bash
-# 批量下载 UP主视频
-uv run scripts/batch_download.py <mid> --all                    # 所有视频
-uv run scripts/batch_download.py <mid> --start-date 20250101    # 按日期范围
-uv run scripts/batch_download.py <mid> --all --preview          # 预览模式
-uv run scripts/batch_download.py <mid> --all --quality 1080p    # 指定清晰度
+# 登录 B站账号
+bili login
 
-# 管理订阅
-uv run scripts/manage_subscriptions.py
+# 订阅管理
+bili sub list                  # 查看订阅列表
+bili sub add <mid> <name>      # 添加订阅
+bili sub toggle <mid>         # 启用/禁用订阅
+bili sub delete <mid>          # 删除订阅
+
+# 视频下载
+bili download bv <bvid>        # 下载单个视频
+bili download up <mid>         # 下载 UP 主所有视频
+
+# 清理工具
+bili clear videos              # 清理视频记录
 
 # 管理分类规则
-uv run bili-rules add --uploader 呆咪 --pattern "投资记录" --folder "每日投资记录"
-
-# 重置 processing 状态的任务
-uv run scripts/reset_processing.py
+bili-rules add --uploader 呆咪 --pattern "投资记录" --folder "每日投资记录"
 
 # 测试 ASR 识别
 uv run scripts/test_asr_file.py
-
-# 测试统一处理模块
-uv run scripts/test_processor.py
 ```
 
 ## 🐛 调试

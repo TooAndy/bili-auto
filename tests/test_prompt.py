@@ -58,7 +58,7 @@ def main():
         print("❌ 处理失败")
         return
 
-    print(f"✓ 处理成功!\n")
+    print("✓ 处理成功!\n")
 
     print("【Summary】")
     print(result.get("summary", ""))

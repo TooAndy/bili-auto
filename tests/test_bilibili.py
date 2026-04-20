@@ -43,7 +43,7 @@ class TestFetchChannelVideos:
         mock_session.get.return_value.json.return_value = mock_response
 
         with patch('app.modules.bilibili._get_session', return_value=mock_session):
-            with patch('app.modules.wbi.sign_params', side_effect=lambda x: x):
+            with patch('app.modules.bilibili.sign_params', side_effect=lambda x: x):
                 result = bilibili.fetch_channel_videos(mid, limit=5)
 
         # 验证结果
@@ -65,7 +65,7 @@ class TestFetchChannelVideos:
         mock_session.get.return_value.json.return_value = mock_response
 
         with patch('app.modules.bilibili._get_session', return_value=mock_session):
-            with patch('app.modules.wbi.sign_params', side_effect=lambda x: x):
+            with patch('app.modules.bilibili.sign_params', side_effect=lambda x: x):
                 result = bilibili.fetch_channel_videos(mid)
 
         assert result == []
@@ -85,7 +85,7 @@ class TestFetchChannelVideos:
         mock_session.get.return_value.json.return_value = mock_response
 
         with patch('app.modules.bilibili._get_session', return_value=mock_session):
-            with patch('app.modules.wbi.sign_params', side_effect=lambda x: x):
+            with patch('app.modules.bilibili.sign_params', side_effect=lambda x: x):
                 result = bilibili.fetch_channel_videos(mid)
 
         assert result == []

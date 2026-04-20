@@ -1,9 +1,7 @@
 """
 测试 ASR 相关模块 - whisper_ai.py
 """
-import os
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 

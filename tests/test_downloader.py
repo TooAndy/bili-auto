@@ -2,7 +2,6 @@
 测试 downloader.py - 音频下载模块
 """
 import os
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -107,7 +106,7 @@ def test_download_audio_calls_yt_dlp(temp_dir, mock_subprocess):
 
     mock_subprocess.side_effect = mock_run
 
-    result = downloader.download_audio(bvid, output_dir=str(temp_dir))
+    downloader.download_audio(bvid, output_dir=str(temp_dir))
 
     # 验证调用了 subprocess.run
     mock_subprocess.assert_called_once()
@@ -152,7 +151,7 @@ def test_download_audio_creates_output_dir(temp_dir):
     nested_dir.mkdir(parents=True, exist_ok=True)
     output_path.touch()
 
-    result = downloader.download_audio(bvid, output_dir=str(nested_dir))
+    downloader.download_audio(bvid, output_dir=str(nested_dir))
 
     # 验证目录存在
     assert nested_dir.exists()

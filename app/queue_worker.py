@@ -10,7 +10,7 @@ from app.models.database import get_db, Video, Dynamic, Subscription
 from app.modules.subtitle import get_subtitles
 from app.modules.whisper_ai import transcribe_audio
 from app.modules.processor import process_text
-from app.modules.push import push_content
+from app.modules.push import push_content, get_enabled_channels
 from app.modules.dynamic import should_push_dynamic
 from app.utils.paths import get_path_manager
 
@@ -268,7 +268,7 @@ def process_single_video(bvid: str):
             "doc_url": doc_url,
             "duration_minutes": summary_data.get("duration_minutes", 0),
             "timestamp": video.pub_time
-        }, ["feishu"])
+        }, get_enabled_channels())
 
         video.status = "done"
         db.commit()
@@ -332,7 +332,7 @@ def process_single_dynamic(dynamic_id: str):
             "image_urls": image_urls,
             "pub_time": str(dynamic.pub_time) if dynamic.pub_time else "",
             "url": f"https://www.bilibili.com/opus/{dynamic.dynamic_id}"
-        }, ["feishu"])
+        }, get_enabled_channels())
 
         dynamic.status = "sent"
         dynamic.pushed_at = datetime.utcnow()

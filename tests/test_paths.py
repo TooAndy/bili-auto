@@ -1,11 +1,9 @@
 """
 测试 paths.py - 路径管理模块
 """
-import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 import tempfile
-import os
 
 from app.utils.paths import (
     _sanitize_dirname,
@@ -145,7 +143,7 @@ class TestPathManager:
         with tempfile.TemporaryDirectory() as tmpdir:
             pm = PathManager(data_root=tmpdir)
             # 创建符合 PathManager 结构的目录
-            video_dir = pm.get_video_dir("呆咪", "BV123", "测试视频", pub_time=1712000000)
+            pm.get_video_dir("呆咪", "BV123", "测试视频", pub_time=1712000000)
 
             result = pm.find_video_dir_by_bvid("BV123")
             assert result is not None
@@ -163,7 +161,7 @@ class TestPathManager:
         with tempfile.TemporaryDirectory() as tmpdir:
             pm = PathManager(data_root=tmpdir)
             # 通过 get_uploader_dir 创建目录结构
-            uploader_dir = pm.get_uploader_dir("呆咪", "12345")
+            pm.get_uploader_dir("呆咪", "12345")
 
             result = pm.find_uploader_dir_by_mid("12345")
             assert result is not None

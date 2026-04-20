@@ -1,7 +1,6 @@
 """
 测试 dynamic 模块
 """
-import pytest
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
@@ -31,9 +30,6 @@ class TestParseDynamic:
             "module_author": {
                 "pub_ts": str(author_ts),
                 "pub_time": author_time,
-            },
-            "module_dynamic": {
-                "major": {"type": major_type, major_type: major} if major else None,
             },
             "module_dynamic": dynamic or {"major": {"type": major_type} if major_type else {}},
         }

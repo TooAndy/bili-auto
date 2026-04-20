@@ -25,7 +25,27 @@ from app.modules.push_channels.registry import (
     list_channels,
 )
 
-__all__ = ["push_content", "get_channel", "list_channels", "push_video_to_feishu", "push_dynamic_to_feishu"]
+__all__ = ["push_content", "get_channel", "list_channels", "get_enabled_channels", "push_video_to_feishu", "push_dynamic_to_feishu"]
+
+
+def get_enabled_channels() -> list:
+    """
+    获取已启用的推送渠道列表
+
+    读取 PUSH_CHANNELS 环境变量，返回逗号分隔的渠道列表。
+    如果未配置，返回 ["feishu"] 作为默认值。
+
+    Returns:
+        list: 启用的渠道列表，如 ["feishu", "telegram"]
+    """
+    from config import Config
+
+    if not Config.PUSH_CHANNELS:
+        # 默认返回飞书
+        return ["feishu"]
+
+    channels = [ch.strip() for ch in Config.PUSH_CHANNELS.split(",") if ch.strip()]
+    return channels if channels else ["feishu"]
 
 
 def push_content(content_data: dict, channels: list) -> bool:

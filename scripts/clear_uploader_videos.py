@@ -148,7 +148,7 @@ def clear_uploader_videos(mid: str, confirm: bool = False):
 
         print()
         print("=" * 60)
-        print(f"✓ 清理完成！")
+        print("✓ 清理完成！")
         print(f"  删除文件: {deleted_files} 个")
         print(f"  删除记录: {len(videos)} 条")
         print("=" * 60)

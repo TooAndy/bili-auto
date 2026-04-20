@@ -1,7 +1,6 @@
 """
 pytest fixtures for tests
 """
-import os
 import sys
 import tempfile
 import wave

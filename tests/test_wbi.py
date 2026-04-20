@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.modules.wbi import WBISigner, sign_params, MIXIN_KEY_ENC_TAB
+from app.modules.wbi import WBISigner, sign_params
 
 
 class TestWBISignerMixinKey:
@@ -103,7 +103,7 @@ class TestWBISignerRefreshMixinKey:
         signer._last_refresh = 0
 
         with patch.object(signer, '_get_keys', return_value=("a" * 32, "b" * 32)):
-            result = signer._refresh_mixin_key()
+            signer._refresh_mixin_key()
             assert signer._img_key == "a" * 32
             assert signer._sub_key == "b" * 32
 

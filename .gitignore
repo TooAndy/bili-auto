@@ -21,3 +21,6 @@ models
 .playwright-cli
 .playwright
 .coverage
+pten_keys.ini
+pten.log
+pten_token.json

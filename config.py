@@ -39,10 +39,17 @@ class Config:
     TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
     TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
+    # 微信企业号
     WECHAT_CORP_ID = os.getenv("WECHAT_CORP_ID", "")
     WECHAT_CORP_SECRET = os.getenv("WECHAT_CORP_SECRET", "")
     WECHAT_AGENT_ID = os.getenv("WECHAT_AGENT_ID", "")
     WECHAT_TO_USER = os.getenv("WECHAT_TO_USER", "@all")
+    WECHAT_WEBHOOK_KEY = os.getenv("WECHAT_WEBHOOK_KEY", "")
+
+    # 推送渠道配置
+    # 逗号分隔的渠道列表，如 "feishu,telegram,wechat"
+    # 设为空则不推送，留空则使用代码中的默认值（飞书）
+    PUSH_CHANNELS = os.getenv("PUSH_CHANNELS", "")
 
     DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///data/bili.db")
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

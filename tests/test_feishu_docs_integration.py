@@ -13,7 +13,6 @@
     python3 -m pytest tests/test_feishu_docs_integration.py -v --tb=short -m integration
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -72,7 +71,7 @@ def test_upload_markdown_real_api():
     assert "file_token" in result
     assert "url" in result
 
-    print(f"\n✅ 文档上传成功!")
+    print("\n✅ 文档上传成功!")
     print(f"   文件 Token: {result['file_token']}")
     print(f"   文件链接: {result['url']}")
 
@@ -131,5 +130,5 @@ def test_push_video_summary_real_api():
     assert "file_token" in result
     assert "url" in result
 
-    print(f"\n✅ 视频总结文档创建成功!")
+    print("\n✅ 视频总结文档创建成功!")
     print(f"   文件链接: {result['url']}")
