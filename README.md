@@ -74,7 +74,7 @@ uv sync
 ### 2. 登录 B站（获取 Cookie 和 refresh_token）
 
 ```bash
-uv run python -m app.cli login
+bili login
 ```
 
 二维码会推送到已配置的飞书/Telegram频道，也可以在终端看到链接。
@@ -108,23 +108,28 @@ cp .env.example .env
 ### 3. 管理UP主订阅
 
 ```bash
-uv run python scripts/manage_subscriptions.py
+bili sub list                 # 查看订阅
+bili sub add <mid> <name>      # 添加订阅
+bili sub add-bulk              # 批量添加（交互式）
+bili sub toggle <mid>          # 启用/禁用
+bili sub delete <mid>          # 删除订阅
+bili sub update                # 更新视频列表
 ```
 
 ### 4. 管理分类规则（可选）
 
 ```bash
 # 添加分类规则
-uv run bili-rules add --uploader 呆咪 --pattern "经济分析" --folder "每周经济分析" --priority 1
+bili-rules add --uploader 呆咪 --pattern "经济分析" --folder "每周经济分析" --priority 1
 
 # 测试标题匹配
-uv run bili-rules test "第1150日投资记录" --uploader 呆咪
+bili-rules test "第1150日投资记录" --uploader 呆咪
 
 # 列出规则
-uv run bili-rules list
+bili-rules list
 
 # 删除规则
-uv run bili-rules delete 1
+bili-rules delete 1
 ```
 
 详细说明见 [飞书文档分类规则管理](docs/CLASSIFICATION_RULES.md)
@@ -132,7 +137,7 @@ uv run bili-rules delete 1
 ### 5. 启动系统
 
 ```bash
-uv run python main.py
+python main.py
 ```
 
 ## 📂 飞书云盘目录结构
@@ -254,7 +259,7 @@ bili test wechat               # 测试微信
 bili-rules add --uploader 呆咪 --pattern "投资记录" --folder "每日投资记录"
 
 # 测试 ASR 识别
-uv run scripts/test_asr_file.py
+python scripts/test_asr_file.py
 ```
 
 ### 推送渠道配置
