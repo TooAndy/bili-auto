@@ -245,6 +245,11 @@ bili download up <mid>        # 下载 UP 主所有视频
 # 清理工具
 bili clear videos              # 清理视频记录
 
+# 测试推送渠道
+bili test all                  # 测试所有渠道
+bili test feishu               # 测试飞书
+bili test wechat               # 测试微信
+
 # 管理分类规则
 bili-rules add --uploader 呆咪 --pattern "投资记录" --folder "每日投资记录"
 

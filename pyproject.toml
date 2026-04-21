@@ -36,6 +36,7 @@ test = [
 ]
 
 [project.scripts]
+bili = "app.cli:cli"
 bili-rules = "app.tools.classification_rules:app"
 bili-login = "app.cli:login"
 
