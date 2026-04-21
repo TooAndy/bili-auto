@@ -80,6 +80,7 @@ bili login
 二维码会推送到已配置的飞书/Telegram频道，也可以在终端看到链接。
 
 **为什么需要登录？**
+
 - Cookie 用于访问 B站 API，检测 UP 主新视频和动态
 - `refresh_token` 用于自动刷新 Cookie，避免 Cookie 过期后需要手动重新登录
 - 扫码登录获取的 Cookie 和 refresh_token 是配套的，能确保刷新成功
@@ -156,6 +157,7 @@ python main.py
 ```
 
 **分类规则**:
+
 - 支持正则表达式匹配视频标题
 - 按优先级排序，数字越小越先匹配
 - 无匹配时使用"默认"分类
@@ -164,18 +166,22 @@ python main.py
 ## 📱 推送渠道
 
 ### 动态推送
+
 - 检测到新动态后**立即推送**（按发布时间顺序）
 - 显示格式：`2026年04月17日 16:30:19`
 
 ### 视频推送
+
 - 处理完成后推送到配置的通知渠道
 
 **支持的渠道**:
+
 - 飞书（应用推送）
 - Telegram
 - 微信企业号（机器人 webhook，不限制 IP）
 
 **配置推送渠道**:
+
 ```bash
 # 在 .env 中设置，不设置则默认飞书
 PUSH_CHANNELS=feishu,telegram,wechat
@@ -184,15 +190,19 @@ PUSH_CHANNELS=wechat
 ```
 
 ### 微信企业号配置
+
 使用企业微信机器人，无需配置可信 IP：
+
 ```bash
 WECHAT_WEBHOOK_KEY=你的机器人webhook_key
 ```
+
 获取方式：企业微信管理后台 → 应用管理 → 创建机器人 → 复制 webhook 地址中的 key
 
 ## 🛠️ 核心工作流
 
 ### 视频处理流程
+
 ```
 scheduler (可配置周期)
     ↓
@@ -209,6 +219,7 @@ queue_worker
 ```
 
 ### 动态处理流程
+
 ```
 scheduler (可配置周期)
     ↓

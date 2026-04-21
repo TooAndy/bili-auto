@@ -88,7 +88,7 @@ def list(
             )
 
         if not show_inactive:
-            query = query.filter(ClassificationRule.is_active is True)
+            query = query.filter(ClassificationRule.is_active == True)
 
         rules = query.order_by(ClassificationRule.uploader_name, ClassificationRule.priority).all()
 
@@ -104,7 +104,7 @@ def list(
 
         for rule in rules:
             status = "✓" if rule.is_active else "✗"
-            fg = typer.colors.DEFAULT if rule.is_active else typer.colors.YELLOW
+            fg = typer.colors.GREEN if rule.is_active else typer.colors.YELLOW
             typer.secho("{:<4} {:<15} {:<30} {:<15} {:<8} {:<8}".format(
                 rule.id,
                 rule.uploader_name[:13],
