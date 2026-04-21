@@ -41,10 +41,12 @@ cli = typer.Typer(help="B站自动化工具")
 sub_cli = typer.Typer(help="UP主订阅管理")
 download_cli = typer.Typer(help="视频下载")
 clear_cli = typer.Typer(help="清理工具")
+test_cli = typer.Typer(help="测试工具")
 
 cli.add_typer(sub_cli, name="sub")
 cli.add_typer(download_cli, name="download")
 cli.add_typer(clear_cli, name="clear")
+cli.add_typer(test_cli, name="test")
 
 # 尝试导入 qrcode
 try:
@@ -914,6 +916,106 @@ def clear_videos(mid: str, confirm: bool = typer.Option(False, "--yes", "-y", he
         raise typer.Exit(1)
     finally:
         db.close()
+
+
+# ============================================================================
+# test 命令 - 测试工具
+# ============================================================================
+
+@test_cli.command("feishu")
+def test_feishu():
+    """测试飞书推送是否正常"""
+    from app.modules.push_channels.feishu import FeishuChannel, get_feishu_tenant_access_token
+
+    typer.echo("测试飞书推送...")
+    typer.echo("=" * 60)
+
+    # 检查 token
+    token = get_feishu_tenant_access_token()
+    if not token:
+        typer.echo("❌ 获取 token 失败", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"✓ Token 获取成功: {token[:20]}...")
+
+    # 发送测试消息
+    channel = FeishuChannel()
+    test_content = {
+        "type": "dynamic",
+        "title": "飞书推送测试",
+        "text": "这是一条测试消息，发送时间: " + str(datetime.now()),
+        "url": "https://example.com",
+        "pub_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+    if channel.send(test_content):
+        typer.echo("✓ 飞书推送成功!")
+    else:
+        typer.echo("❌ 飞书推送失败", err=True)
+        raise typer.Exit(1)
+
+
+@test_cli.command("wechat")
+def test_wechat():
+    """测试微信推送是否正常"""
+    from app.modules.push_channels.wechat import WechatChannel
+
+    typer.echo("测试微信推送...")
+    typer.echo("=" * 60)
+
+    channel = WechatChannel()
+    test_content = {
+        "type": "dynamic",
+        "title": "微信推送测试",
+        "text": "这是一条测试消息，发送时间: " + str(datetime.now()),
+        "url": "https://example.com",
+    }
+
+    if channel.send(test_content):
+        typer.echo("✓ 微信推送成功!")
+    else:
+        typer.echo("❌ 微信推送失败", err=True)
+        raise typer.Exit(1)
+
+
+@test_cli.command("all")
+def test_all():
+    """测试所有已配置的推送渠道"""
+    from app.modules.push import get_enabled_channels
+    from app.modules.push_channels import get_channel
+
+    channels = get_enabled_channels()
+    typer.echo(f"已配置的推送渠道: {channels}")
+    typer.echo("=" * 60)
+
+    results = {}
+    for channel_name in channels:
+        channel = get_channel(channel_name)
+        if not channel:
+            typer.echo(f"❌ {channel_name}: 渠道未找到")
+            results[channel_name] = False
+            continue
+
+        # 构造测试内容
+        test_content = {
+            "type": "dynamic",
+            "title": f"{channel_name} 推送测试",
+            "text": f"这是一条测试消息，发送时间: {datetime.now()}",
+            "url": "https://example.com",
+        }
+
+        if channel.send(test_content):
+            typer.echo(f"✓ {channel_name}: 推送成功")
+            results[channel_name] = True
+        else:
+            typer.echo(f"❌ {channel_name}: 推送失败")
+            results[channel_name] = False
+
+    typer.echo("=" * 60)
+    success = sum(1 for v in results.values() if v)
+    typer.echo(f"结果: {success}/{len(results)} 成功")
+
+    if success < len(results):
+        raise typer.Exit(1)
 
 
 # ============================================================================
