@@ -28,19 +28,19 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from app.models.database import SessionLocal, ClassificationRule
 
-app = typer.Typer(
-    name="bili-rules",
-    help="管理飞书文档分类规则",
-    add_completion=False
-)
+app = typer.Typer(name="bili-rules", help="管理飞书文档分类规则", add_completion=False)
 
 
 @app.command()
 def add(
-    uploader: str = typer.Option(..., "--uploader", "-u", help="UP主名称，* 表示所有UP主"),
+    uploader: str = typer.Option(
+        ..., "--uploader", "-u", help="UP主名称，* 表示所有UP主"
+    ),
     pattern: str = typer.Option(..., "--pattern", "-p", help="正则表达式模式"),
     folder: str = typer.Option(..., "--folder", "-f", help="目标文件夹名称"),
-    priority: int = typer.Option(100, "--priority", "-o", help="优先级，数字越小越先匹配"),
+    priority: int = typer.Option(
+        100, "--priority", "-o", help="优先级，数字越小越先匹配"
+    ),
 ):
     """
     添加分类规则
@@ -58,7 +58,7 @@ def add(
             uploader_name=uploader,
             pattern=pattern,
             target_folder=folder,
-            priority=priority
+            priority=priority,
         )
         session.add(rule)
         session.commit()
@@ -78,8 +78,12 @@ def add(
 
 @app.command("list")
 def list_rules(
-    uploader: str = typer.Option(None, "--uploader", "-u", help="筛选 UP 主，不指定则显示所有"),
-    show_inactive: bool = typer.Option(False, "--show-inactive", help="显示已禁用的规则"),
+    uploader: str = typer.Option(
+        None, "--uploader", "-u", help="筛选 UP 主，不指定则显示所有"
+    ),
+    show_inactive: bool = typer.Option(
+        False, "--show-inactive", help="显示已禁用的规则"
+    ),
 ):
     """
     列出分类规则
@@ -90,8 +94,8 @@ def list_rules(
 
         if uploader:
             query = query.filter(
-                (ClassificationRule.uploader_name == uploader) |
-                (ClassificationRule.uploader_name == "*")
+                (ClassificationRule.uploader_name == uploader)
+                | (ClassificationRule.uploader_name == "*")
             )
 
         if not show_inactive:
@@ -101,16 +105,22 @@ def list_rules(
             # - .is_(True) 生成 ANSI SQL 的 IS TRUE 语法，最标准
             query = query.filter(ClassificationRule.is_active.is_(True))
 
-        rules = query.order_by(ClassificationRule.uploader_name, ClassificationRule.priority).all()
+        rules = query.order_by(
+            ClassificationRule.uploader_name, ClassificationRule.priority
+        ).all()
 
         if not rules:
             typer.secho("没有找到规则", fg=typer.colors.YELLOW)
             return
 
         # 标题
-        typer.secho("\n{:<4} {:<15} {:<30} {:<22} {:<8} {:<8}".format(
-            "ID", "UP主", "模式", "文件夹", "优先级", "状态"
-        ), fg=typer.colors.CYAN, bold=True)
+        typer.secho(
+            "\n{:<4} {:<15} {:<30} {:<22} {:<8} {:<8}".format(
+                "ID", "UP主", "模式", "文件夹", "优先级", "状态"
+            ),
+            fg=typer.colors.CYAN,
+            bold=True,
+        )
         typer.secho("-" * 95)
 
         for rule in rules:
@@ -123,14 +133,17 @@ def list_rules(
             else:
                 pattern_str = (rule.pattern or "")[:28]
                 folder_str = (rule.target_folder or "")[:20]
-            typer.secho("{:<4} {:<15} {:<30} {:<22} {:<8} {:<8}".format(
-                rule.id,
-                rule.uploader_name[:13],
-                pattern_str,
-                folder_str,
-                rule.priority,
-                status
-            ), fg=fg)
+            typer.secho(
+                "{:<4} {:<15} {:<30} {:<22} {:<8} {:<8}".format(
+                    rule.id,
+                    rule.uploader_name[:13],
+                    pattern_str,
+                    folder_str,
+                    rule.priority,
+                    status,
+                ),
+                fg=fg,
+            )
 
         typer.secho(f"\n共 {len(rules)} 条规则\n", fg=typer.colors.CYAN)
     finally:
@@ -241,10 +254,14 @@ def add_folder(
     session = SessionLocal()
     try:
         # 查找该 UP 主是否已有 LLM 配置
-        config = session.query(ClassificationRule).filter(
-            ClassificationRule.uploader_name == uploader,
-            ClassificationRule.llm_folders.isnot(None)
-        ).first()
+        config = (
+            session.query(ClassificationRule)
+            .filter(
+                ClassificationRule.uploader_name == uploader,
+                ClassificationRule.llm_folders.isnot(None),
+            )
+            .first()
+        )
 
         if config:
             # 追加到现有列表
@@ -254,15 +271,16 @@ def add_folder(
                 return
             folders.append(folder)
             config.llm_folders = folders
-            typer.secho(f"✓ 已添加文件夹到配置 (ID: {config.id})", fg=typer.colors.GREEN)
+            typer.secho(
+                f"✓ 已添加文件夹到配置 (ID: {config.id})", fg=typer.colors.GREEN
+            )
         else:
             # 创建新配置
-            config = ClassificationRule(
-                uploader_name=uploader,
-                llm_folders=[folder]
-            )
+            config = ClassificationRule(uploader_name=uploader, llm_folders=[folder])
             session.add(config)
-            typer.secho(f"✓ LLM 文件夹配置已创建 (ID: {config.id})", fg=typer.colors.GREEN)
+            typer.secho(
+                f"✓ LLM 文件夹配置已创建 (ID: {config.id})", fg=typer.colors.GREEN
+            )
 
         session.commit()
         typer.secho(f"  UP主: {uploader}", fg=typer.colors.CYAN)
@@ -277,7 +295,9 @@ def add_folder(
 
 @app.command()
 def list_folders(
-    uploader: str = typer.Option(None, "--uploader", "-u", help="筛选 UP 主，不指定则显示所有"),
+    uploader: str = typer.Option(
+        None, "--uploader", "-u", help="筛选 UP 主，不指定则显示所有"
+    ),
 ):
     """
     列出已配置的 LLM 分类文件夹
@@ -301,18 +321,21 @@ def list_folders(
             typer.secho("没有找到 LLM 文件夹配置", fg=typer.colors.YELLOW)
             return
 
-        typer.secho("\n{:<4} {:<15} {:<30}".format(
-            "ID", "UP主", "文件夹"
-        ), fg=typer.colors.CYAN, bold=True)
+        typer.secho(
+            "\n{:<4} {:<15} {:<30}".format("ID", "UP主", "文件夹"),
+            fg=typer.colors.CYAN,
+            bold=True,
+        )
         typer.secho("-" * 60)
 
         for config in configs:
             folders_str = ", ".join(config.llm_folders)
-            typer.secho("{:<4} {:<15} {:<30}".format(
-                config.id,
-                config.uploader_name[:13],
-                folders_str[:28]
-            ), fg=typer.colors.GREEN)
+            typer.secho(
+                "{:<4} {:<15} {:<30}".format(
+                    config.id, config.uploader_name[:13], folders_str[:28]
+                ),
+                fg=typer.colors.GREEN,
+            )
 
         typer.secho(f"\n共 {len(configs)} 条配置\n", fg=typer.colors.CYAN)
     finally:
@@ -332,10 +355,14 @@ def remove_folder(
     """
     session = SessionLocal()
     try:
-        config = session.query(ClassificationRule).filter(
-            ClassificationRule.uploader_name == uploader,
-            ClassificationRule.llm_folders.isnot(None)
-        ).first()
+        config = (
+            session.query(ClassificationRule)
+            .filter(
+                ClassificationRule.uploader_name == uploader,
+                ClassificationRule.llm_folders.isnot(None),
+            )
+            .first()
+        )
 
         if not config:
             typer.secho(f"未找到 UP主 '{uploader}' 的 LLM 配置", fg=typer.colors.RED)
@@ -374,10 +401,14 @@ def test(
     # 检查使用哪种分类方式
     session = SessionLocal()
     try:
-        llm_config = session.query(ClassificationRule).filter(
-            ClassificationRule.uploader_name == uploader,
-            ClassificationRule.llm_folders.isnot(None)
-        ).first()
+        llm_config = (
+            session.query(ClassificationRule)
+            .filter(
+                ClassificationRule.uploader_name == uploader,
+                ClassificationRule.llm_folders.isnot(None),
+            )
+            .first()
+        )
         has_llm = bool(llm_config and llm_config.llm_folders)
     finally:
         session.close()
@@ -391,6 +422,168 @@ def test(
         typer.secho(f"✓ 匹配结果: {category}", fg=typer.colors.GREEN, bold=True)
     else:
         typer.secho("✗ 无匹配规则，将使用默认分类", fg=typer.colors.YELLOW, bold=True)
+
+
+# 内置模板定义
+# 投资模板使用 docs/prompt.md（已有的通用 prompt）
+with open(
+    Path(__file__).parent.parent.parent / "docs" / "prompt.md", "r", encoding="utf-8"
+) as f:
+    DEFAULT_PROMPT_CONTENT = f.read()
+
+BUILTIN_TEMPLATES = {
+    "投资": DEFAULT_PROMPT_CONTENT,
+    "运动": """你是一个专业的内容处理助手，擅长运动健身领域。请将输入文本处理为结构化JSON格式。
+
+【输出要求】
+- summary: 80字以内的运动摘要，包含训练计划和关键建议
+- details: 详细内容包括：训练方法、恢复建议、注意事项
+- key_points: 3-5个核心要点，每个包含具体数字和操作建议
+- insights: 实用见解，说明训练原则
+
+【特别注意】
+- 识别运动品牌（耐克/阿迪/亚瑟士）指的是运动装备，不是股票
+- 提取具体数字：里程、配速、重量、组数、次数等
+- 区分比赛策略 vs 日常训练建议""",
+    "大模型算法": """你是一个专业的内容处理助手，擅长AI和大模型算法领域。请将输入文本处理为结构化JSON格式。
+
+【输出要求】
+- summary: 100字以内的技术摘要，包含核心方法和结论
+- details: 详细分析，包括：技术原理、论文引用、方法对比
+- key_points: 3-5个技术要点，每个包含具体算法名称和参数
+- insights: 技术洞察，说明为什么这个方法有效
+
+【特别注意】
+- 识别并准确翻译技术术语和论文名称
+- 提取具体数字：参数规模、训练数据量、benchmark分数等
+- 区分开源模型 vs 闭源模型 vs 论文方法""",
+}
+
+
+@app.command("set-prompt")
+def set_prompt(
+    uploader: str = typer.Option(..., "--uploader", "-u", help="UP主名称"),
+    prompt: str = typer.Option(
+        ...,
+        "--prompt",
+        "-p",
+        help="Prompt 模板内容（可用内置模板名：投资/运动/大模型算法）",
+    ),
+):
+    """
+    设置 UP 主的 LLM prompt 模板
+
+    Example:
+        bili-rules set-prompt --uploader 呆咪 --prompt "你是一个专业的内容处理助手..."
+        bili-rules set-prompt --uploader 呆咪 --prompt "投资"  # 使用内置投资模板
+    """
+    # 检查是否内置模板名
+    if prompt in BUILTIN_TEMPLATES:
+        actual_prompt = BUILTIN_TEMPLATES[prompt]
+        typer.secho(f"使用内置模板: {prompt}", fg=typer.colors.CYAN)
+    else:
+        actual_prompt = prompt
+
+    session = SessionLocal()
+    try:
+        # 查找该 UP 主是否已有配置
+        config = (
+            session.query(ClassificationRule)
+            .filter(ClassificationRule.uploader_name == uploader)
+            .first()
+        )
+
+        if config:
+            config.prompt_template = actual_prompt
+            typer.secho(
+                f"✓ 已更新 prompt 模板 (ID: {config.id})", fg=typer.colors.GREEN
+            )
+        else:
+            # 创建新配置
+            config = ClassificationRule(
+                uploader_name=uploader, prompt_template=actual_prompt
+            )
+            session.add(config)
+            typer.secho(
+                f"✓ 已创建 prompt 模板 (ID: {config.id})", fg=typer.colors.GREEN
+            )
+
+        session.commit()
+        typer.secho(f"  UP主: {uploader}", fg=typer.colors.CYAN)
+        typer.secho(f"  Prompt长度: {len(actual_prompt)} 字符", fg=typer.colors.CYAN)
+    except Exception as e:
+        session.rollback()
+        typer.secho(f"设置 prompt 失败: {e}", fg=typer.colors.RED)
+        raise typer.Exit(1)
+    finally:
+        session.close()
+
+
+@app.command("get-prompt")
+def get_prompt(
+    uploader: str = typer.Option(..., "--uploader", "-u", help="UP主名称"),
+):
+    """
+    获取 UP 主的当前 prompt 模板
+
+    Example:
+        bili-rules get-prompt --uploader 呆咪
+    """
+    session = SessionLocal()
+    try:
+        config = (
+            session.query(ClassificationRule)
+            .filter(ClassificationRule.uploader_name == uploader)
+            .first()
+        )
+
+        if config and config.prompt_template:
+            typer.secho(
+                f"\n=== {uploader} 的 Prompt 模板 ===\n",
+                fg=typer.colors.CYAN,
+                bold=True,
+            )
+            typer.secho(config.prompt_template, fg=typer.colors.WHITE)
+            typer.secho(
+                f"\n(共 {len(config.prompt_template)} 字符)", fg=typer.colors.CYAN
+            )
+        else:
+            typer.secho(f"UP主 '{uploader}' 未配置 prompt 模板", fg=typer.colors.YELLOW)
+            typer.secho("使用默认 prompt（docs/prompt.md）", fg=typer.colors.CYAN)
+    finally:
+        session.close()
+
+
+@app.command("list-templates")
+def list_templates():
+    """
+    列出所有内置 prompt 模板
+
+    Example:
+        bili-rules list-templates
+    """
+    typer.secho("\n=== 内置 Prompt 模板 ===\n", fg=typer.colors.CYAN, bold=True)
+
+    for name, template in BUILTIN_TEMPLATES.items():
+        typer.secho(
+            f"【{name}】({len(template)} 字符)", fg=typer.colors.GREEN, bold=True
+        )
+        # 显示前 3 行
+        preview = "\n".join(template.split("\n")[:3])
+        typer.secho(preview, fg=typer.colors.WHITE)
+        typer.secho("...\n", fg=typer.colors.WHITE)
+
+    typer.secho("使用方法:", fg=typer.colors.CYAN)
+    typer.secho(
+        "  bili-rules set-prompt --uploader 呆咪 --prompt 投资", fg=typer.colors.WHITE
+    )
+    typer.secho(
+        "  bili-rules set-prompt --uploader 呆咪 --prompt 运动", fg=typer.colors.WHITE
+    )
+    typer.secho(
+        "  bili-rules set-prompt --uploader 呆咪 --prompt 大模型算法",
+        fg=typer.colors.WHITE,
+    )
 
 
 if __name__ == "__main__":
