@@ -152,7 +152,33 @@ bili-rules list
 bili-rules delete 1
 ```
 
-详细说明见 [飞书文档分类规则管理](docs/CLASSIFICATION_RULES.md)
+### 管理 LLM Prompt 模板（可选）
+
+为不同 UP 主配置专属的 LLM summarization prompt，解决投资/运动/技术类内容需要不同 summarization 风格的问题：
+
+```bash
+# 设置 prompt 模板（支持内置模板名）
+bili-rules set-prompt --uploader 呆咪 --prompt 投资     # 使用内置投资模板（来自 docs/prompt.md）
+bili-rules set-prompt --uploader 呆咪 --prompt 运动     # 使用内置运动模板
+bili-rules set-prompt --uploader 呆咪 --prompt 大模型算法  # 使用内置算法模板
+
+# 设置自定义 prompt
+bili-rules set-prompt --uploader 呆咪 --prompt "你是一个专业的内容处理助手..."
+
+# 获取当前 prompt 模板
+bili-rules get-prompt --uploader 呆咪
+
+# 列出所有内置模板
+bili-rules list-templates
+```
+
+内置模板：
+
+| 模板名 | 适用场景 |
+|--------|----------|
+| 投资 | 股票、基金、宏观经济分析 |
+| 运动 | 跑步、健身、训练计划 |
+| 大模型算法 | AI、机器学习、论文解读 |
 
 ### 5. 启动系统
 
@@ -392,5 +418,5 @@ MIT
 ---
 
 **项目阶段**: MVP Phase 1 + 优化增强
-**最后更新**: 2026年4月17日
-**版本**: 1.0.0
+**最后更新**: 2026年4月22日
+**版本**: 1.0.2
