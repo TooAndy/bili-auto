@@ -159,11 +159,19 @@ if "sqlite" in Config.DATABASE_URL:
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
 
-def init_db():
-    """初始化数据库"""
+def init_services():
+    """初始化服务：数据库 + whisper.cpp"""
+    # 数据库初始化和迁移
     Base.metadata.create_all(engine)
     _migrate_if_needed()
     print("✓ 数据库初始化完成")
+
+    # whisper.cpp 自动下载
+    from app.utils.whisper_downloader import setup_whisper
+    if setup_whisper():
+        print("✓ whisper.cpp 准备就绪")
+    else:
+        print("⚠ whisper.cpp 未就绪，将使用 faster-whisper")
 
 
 def _migrate_if_needed():

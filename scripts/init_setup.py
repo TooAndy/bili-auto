@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """初始化项目：创建目录、数据库、下载模型"""
 from pathlib import Path
-from app.models.database import init_db
+from app.models.database import init_services
 from app.utils.logger import get_logger
 
 logger = get_logger("init_setup")
@@ -13,8 +13,8 @@ def setup():
         Path(p).mkdir(parents=True, exist_ok=True)
         print(f"目录已创建: {p}")
 
-    init_db()
-    print("数据库初始化完成")
+    init_services()
+    print("服务初始化完成")
 
     # 快速验证模型
     try:
