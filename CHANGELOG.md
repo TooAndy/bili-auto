@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.2](https://github.com/TooAndy/bili-auto/compare/v1.0.1...v1.0.2) (2026-04-22)
+
+
+### Bug Fixes
+
+* listen for tag push events to trigger docker build ([a76702d](https://github.com/TooAndy/bili-auto/commit/a76702da0b0dd3fd1f2e4cd5d1566ec503a7ade2))
+* listen for tag push events to trigger docker build ([d96baba](https://github.com/TooAndy/bili-auto/commit/d96babab20269548dcf000d36845f7e452d49571))
+
 ## [1.0.1](https://github.com/TooAndy/bili-auto/compare/v1.0.0...v1.0.1) (2026-04-22)
 
 
