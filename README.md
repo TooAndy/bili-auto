@@ -119,6 +119,24 @@ bili sub update                # 更新视频列表
 
 ### 4. 管理分类规则（可选）
 
+**方式一：LLM 智能分类（推荐）**
+配置文件夹名，让大模型自动分析视频标题并分类：
+
+```bash
+# 添加 LLM 分类文件夹
+bili-rules add-folder --uploader 呆咪 --folder "每日投资记录"
+bili-rules add-folder --uploader 呆咪 --folder "闲聊"
+
+# 列出已配置的 LLM 文件夹
+bili-rules list-folders --uploader 呆咪
+
+# 移除文件夹
+bili-rules remove-folder --uploader 呆咪 --folder "闲聊"
+```
+
+**方式二：正则表达式规则**
+手动指定正则表达式匹配模式：
+
 ```bash
 # 添加分类规则
 bili-rules add --uploader 呆咪 --pattern "经济分析" --folder "每周经济分析" --priority 1

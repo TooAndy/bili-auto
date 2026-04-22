@@ -28,7 +28,10 @@
       "Skill(gstack:*)",
       "Skill(plan-ceo-review)",
       "Skill(plan-ceo-review:*)",
-      "mcp__MiniMax__web_search"
+      "mcp__MiniMax__web_search",
+      "Bash(bili-rules list-folders *)",
+      "Skill(review)",
+      "Skill(review:*)"
     ]
   }
 }

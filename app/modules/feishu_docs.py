@@ -20,6 +20,9 @@ def _classify_title(uploader_name: str, title: str) -> Optional[str]:
     """
     根据标题分类
 
+    优先使用 LLM 分类（当配置了 llm_folders 时），
+    否则回退到正则表达式匹配。
+
     Args:
         uploader_name: UP 主名称
         title: 视频标题
@@ -31,11 +34,24 @@ def _classify_title(uploader_name: str, title: str) -> Optional[str]:
 
     session = SessionLocal()
     try:
-        # 查询该 UP 主和通用（*）规则，按优先级排序
+        # 先检查是否有 LLM 配置
+        llm_config = session.query(ClassificationRule).filter(
+            ClassificationRule.uploader_name == uploader_name,
+            ClassificationRule.llm_folders.isnot(None)
+        ).first()
+
+        if llm_config and llm_config.llm_folders:
+            folder = _classify_by_llm(uploader_name, title, llm_config.llm_folders)
+            if folder:
+                return folder
+            # LLM 分类失败，继续尝试正则
+
+        # 回退到正则表达式规则
         rules = session.query(ClassificationRule).filter(
             (ClassificationRule.uploader_name == uploader_name) |
             (ClassificationRule.uploader_name == "*"),
-            ClassificationRule.is_active is True
+            ClassificationRule.is_active == True,
+            ClassificationRule.pattern.isnot(None)
         ).order_by(ClassificationRule.priority).all()
 
         for rule in rules:
@@ -50,6 +66,70 @@ def _classify_title(uploader_name: str, title: str) -> Optional[str]:
         return None
     finally:
         session.close()
+
+
+def _classify_by_llm(uploader_name: str, title: str, folders: list) -> Optional[str]:
+    """
+    使用 LLM 进行标题分类（轻量级实现）
+
+    Args:
+        uploader_name: UP 主名称
+        title: 视频标题
+        folders: 文件夹名称列表
+
+    Returns:
+        最佳匹配的文件夹名称，失败返回 None
+    """
+    from app.modules.processor import client
+
+    if not client:
+        logger.warning("未配置 OpenAI API，无法使用 LLM 分类")
+        return None
+
+    system_prompt = """你是一个视频分类助手。
+严格规则：
+1. 只输出文件夹名称，不要任何其他文字
+2. 不要解释，不要标点，不要换行
+3. 只从提供的文件夹列表中选择一个"""
+
+    user_prompt = f"""UP主: {uploader_name}
+视频标题: {title}
+可用文件夹: {', '.join(folders)}
+
+输出要求：只输出一个文件夹名称，什么都不要输出。"""
+
+    try:
+        response = client.chat.completions.create(
+            model=Config.OPENAI_MODEL or "gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.1,
+            max_tokens=10,
+            timeout=30
+        )
+        matched = response.choices[0].message.content.strip()
+        # 去除思考标签（<think>...</thinking> 和 <...>）
+        matched = re.sub(r'<think>[\s\S]*?</think>', '', matched, flags=re.IGNORECASE)
+        matched = re.sub(r'<[^>]+>', '', matched).strip()
+        # 只检查响应的第一行（避免日志信息干扰）
+        first_line = matched.split('\n')[0].strip()
+        # 优先匹配最长的文件夹名（避免短名称匹配到错误的位置）
+        matched_folder = None
+        for folder in sorted(folders, key=len, reverse=True):
+            if folder in first_line:
+                matched_folder = folder
+                break
+        if matched_folder:
+            logger.debug(f"LLM 分类成功: '{title}' -> '{matched_folder}'")
+            return matched_folder
+        else:
+            logger.warning(f"LLM 返回了未知内容: {first_line[:50]}...，可用: {folders}")
+            return None
+    except Exception as e:
+        logger.error(f"LLM 分类异常: {e}")
+        return None
 
 
 def _get_folder_mapping(uploader_name: str, category: str) -> Optional[str]:

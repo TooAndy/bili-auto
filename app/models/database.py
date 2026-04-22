@@ -108,8 +108,9 @@ class ClassificationRule(Base):
 
     id = Column(Integer, primary_key=True)
     uploader_name = Column(String, nullable=False)  # UP主名称，"*" 表示所有UP主
-    pattern = Column(String, nullable=False)        # 正则表达式
-    target_folder = Column(String, nullable=False)  # 目标文件夹名称
+    pattern = Column(String, nullable=True)          # 正则表达式（使用LLM分类时可为NULL）
+    target_folder = Column(String, nullable=True)    # 目标文件夹名称（使用LLM分类时可为NULL）
+    llm_folders = Column(JSON, nullable=True)      # LLM分类文件夹列表，如 ["每日投资记录", "闲聊"]
     priority = Column(Integer, default=100)         # 优先级，数字越小越先匹配
     is_active = Column(Boolean, default=True)      # 是否启用
     created_at = Column(DateTime, default=datetime.utcnow)
