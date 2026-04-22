@@ -37,6 +37,6 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
           tags: |
-            ghcr.io/${{ github.repository }}/bili-auto:latest
-            ghcr.io/${{ github.repository }}/bili-auto:${{ matrix.platform }}
-            ghcr.io/${{ github.repository }}/bili-auto:${{ github.sha }}
+            ghcr.io/tooandy/bili-auto:latest
+            ghcr.io/tooandy/bili-auto:${{ matrix.platform }}
+            ghcr.io/tooandy/bili-auto:${{ github.sha }}
