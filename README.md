@@ -11,6 +11,7 @@
 - **内容持久化**: 识别文本保存为 txt，详细总结保存为 markdown
 - **飞书文档**: 自动上传视频摘要到飞书云盘，按UP主和内容分类
 - **灵活推送**: 统一的多渠道推送接口（飞书、Telegram、微信等）
+- **Docker 部署**: 一键部署，自动下载 whisper.cpp 模型
 
 ## 📁 项目结构
 
@@ -324,6 +325,65 @@ grep "ERROR" logs/bili.log
 grep "DEBUG" logs/bili.log
 grep "新动态" logs/bili.log
 ```
+
+## 🐳 Docker 部署
+
+### 快速开始
+
+```bash
+# 下载镜像
+docker pull ghcr.io/tooandy/bili-auto:latest
+
+# 创建配置目录
+mkdir -p $(pwd)/bili-data
+
+# 创建配置文件
+cat > $(pwd)/.env << 'EOF'
+# B站 Cookie（必需）
+BILIBILI_COOKIE=your_cookie_here
+
+# LLM 配置（必需）
+OPENAI_API_KEY=your_api_key
+OPENAI_BASE_URL=https://api.openai.com
+OPENAI_MODEL=gpt-4o-mini
+
+# 飞书推送（可选）
+FEISHU_WEBHOOK=your_webhook_url
+EOF
+
+# 启动容器
+docker run -d \
+  --name bili-auto \
+  --restart unless-stopped \
+  -v $(pwd)/bili-data:/app/data \
+  -v $(pwd)/.env:/app/.env \
+  ghcr.io/tooandy/bili-auto:latest
+```
+
+### 数据持久化
+
+| 路径 | 说明 |
+|------|------|
+| `/app/data` | 数据库和运行时数据 |
+| `/app/models` | whisper.cpp 模型（自动下载） |
+| `/app/logs` | 日志目录 |
+
+### whisper.cpp 自动下载
+
+首次启动时自动下载 whisper.cpp CLI 和模型（约 500MB）：
+
+- 自动检测平台：darwin-arm64（Apple Silicon）、darwin-x86_64（Intel Mac）、linux-x64
+- 模型文件：`ggml-small.bin`
+- 下载完成前使用 faster-whisper 作为备选
+
+### 升级
+
+```bash
+docker pull ghcr.io/tooandy/bili-auto:latest
+docker restart bili-auto
+```
+
+或使用 Watchtower 自动更新（见 docker-compose.watchtower.yml）
 
 ## 📄 许可证
 

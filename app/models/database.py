@@ -159,12 +159,22 @@ if "sqlite" in Config.DATABASE_URL:
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
 
-def init_services():
-    """初始化服务：数据库 + whisper.cpp"""
-    # 数据库初始化和迁移
+def init_db():
+    """
+    初始化数据库：创建表 + 执行迁移
+    仅处理数据库相关的初始化，不涉及 whisper 等其他服务
+    """
     Base.metadata.create_all(engine)
     _migrate_if_needed()
     print("✓ 数据库初始化完成")
+
+
+def init_services():
+    """
+    初始化所有服务（数据库 + whisper）
+    供 main.py 和 scripts/init_setup.py 使用
+    """
+    init_db()
 
     # whisper.cpp 自动下载
     from app.utils.whisper_downloader import setup_whisper
