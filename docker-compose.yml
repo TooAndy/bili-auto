@@ -1,6 +1,6 @@
 services:
   bili:
-    image: ghcr.io/tooandy/bili-auto:latest
+    image: ghcr.io/TooAndy/bili-auto:latest
     container_name: bili-auto
     restart: unless-stopped
     volumes:

@@ -332,7 +332,7 @@ grep "新动态" logs/bili.log
 
 ```bash
 # 下载镜像
-docker pull ghcr.io/tooandy/bili-auto:latest
+docker pull ghcr.io/TooAndy/bili-auto:latest
 
 # 创建配置目录
 mkdir -p $(pwd)/bili-data
@@ -357,7 +357,7 @@ docker run -d \
   --restart unless-stopped \
   -v $(pwd)/bili-data:/app/data \
   -v $(pwd)/.env:/app/.env \
-  ghcr.io/tooandy/bili-auto:latest
+  ghcr.io/TooAndy/bili-auto:latest
 ```
 
 ### 数据持久化
@@ -379,7 +379,7 @@ docker run -d \
 ### 升级
 
 ```bash
-docker pull ghcr.io/tooandy/bili-auto:latest
+docker pull ghcr.io/TooAndy/bili-auto:latest
 docker restart bili-auto
 ```
 
