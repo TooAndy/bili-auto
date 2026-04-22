@@ -1,4 +1,10 @@
 
+## [1.0.6](https://github.com/TooAndy/bili-auto/releases/tag/v1.0.6) (2026-04-22T12:15:09Z)
+
+### Changes
+
+* chore: unified release workflow with docker build (#18) ([ccc3772](https://github.com/TooAndy/bili-auto/commit/ccc3772d4460c707a2b16d6da9a9ac7657c3a3ef))
+
 ## [1.0.5](https://github.com/TooAndy/bili-auto/releases/tag/v1.0.5) (2026-04-22T12:05:45Z)
 
 ### Changes
