@@ -1,0 +1,27 @@
+services:
+  bili:
+    image: ghcr.io/tooandy/bili-auto:latest
+    container_name: bili-auto
+    restart: unless-stopped
+    volumes:
+      - bili-data:/app/data
+      - bili-logs:/app/logs
+      - bili-models:/app/models
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=sqlite:///data/bili.db
+      - PYTHONUNBUFFERED=1
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 3600 bili
+
+volumes:
+  bili-data:
+  bili-logs:
+  bili-models:

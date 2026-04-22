@@ -1,0 +1,25 @@
+services:
+  bili:
+    image: ghcr.io/tooandy/bili-auto:latest
+    container_name: bili-auto
+    restart: unless-stopped
+    volumes:
+      - bili-data:/app/data
+      - bili-logs:/app/logs
+      - bili-models:/app/models
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=sqlite:///data/bili.db
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sqlite3; sqlite3.connect('/app/data/bili.db').close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  bili-data:
+  bili-logs:
+  bili-models:
