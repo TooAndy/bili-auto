@@ -1,0 +1,168 @@
+name: Publish Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.4) or "auto" to auto-increment'
+        required: false
+        default: 'auto'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Calculate version
+        id: version
+        run: |
+          # Get latest tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          LATEST_VERSION=${LATEST_TAG#v}
+          echo "latest_version=$LATEST_VERSION"
+          
+          # If auto, increment patch version
+          if [ "${{ inputs.version }}" = "auto" ]; then
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$LATEST_VERSION"
+            NEW_PATCH=$((PATCH + 1))
+            NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+          else
+            NEW_VERSION="${{ inputs.version }}"
+          fi
+          
+          NEW_TAG="v$NEW_VERSION"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$NEW_TAG" >> $GITHUB_OUTPUT
+          echo "Latest tag: $LATEST_TAG"
+          echo "New version: $NEW_VERSION"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get latest tag for comparison
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          if [ -n "$LATEST_TAG" ]; then
+            # Get commits between latest tag and HEAD
+            COMMITS=$(git log $LATEST_TAG..HEAD --oneline)
+            echo "Commits since $LATEST_TAG:"
+            echo "$COMMITS"
+          else
+            # If no tag exists, get all commits
+            COMMITS=$(git log --oneline)
+            echo "All commits:"
+            echo "$COMMITS"
+          fi
+          
+          # Format changelog entry
+          cat > /tmp/changelog_entry.md << 'EOF'
+          
+          ## [${{ steps.version.outputs.version }}](https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.tag }}) (${{ github.event.repository.updated_at }})
+
+          ### Changes
+
+          EOF
+          
+          # Add commits to changelog
+          echo "$COMMITS" | while read -r line; do
+            HASH=$(echo "$line" | awk '{print $1}')
+            MSG=$(echo "$line" | cut -d' ' -f2-)
+            FULL_HASH=$(git rev-parse $HASH 2>/dev/null || echo $HASH)
+            echo "* $MSG ([${FULL_HASH:0:7}](https://github.com/${{ github.repository }}/commit/$FULL_HASH))" >> /tmp/changelog_entry.md
+          done
+          
+          # Store for later use
+          cp /tmp/changelog_entry.md /tmp/changelog_entry.txt
+          cat /tmp/changelog_entry.txt
+
+      - name: Update pyproject.toml
+        run: |
+          sed -i 's/version = "[^"]*"/version = "${{ steps.version.outputs.version }}"/g' pyproject.toml
+          cat pyproject.toml | grep version
+
+      - name: Update CHANGELOG.md
+        run: |
+          # Prepend new entry to CHANGELOG.md
+          cat /tmp/changelog_entry.txt CHANGELOG.md > /tmp/CHANGELOG.new.md
+          mv /tmp/CHANGELOG.new.md CHANGELOG.md
+          head -20 CHANGELOG.md
+
+      - name: Commit and tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml CHANGELOG.md
+          git commit -m "chore: release version ${{ steps.version.outputs.version }}"
+          git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.version }}"
+          git push origin main
+          git push origin "${{ steps.version.outputs.tag }}"
+
+  docker-build:
+    needs: publish
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [linux/amd64, linux/arm64]
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.publish.outputs.tag }}
+
+      - name: Normalize platform name
+        run: echo "PLATFORM_TAG=${PLATFORM//\//-}" >> $GITHUB_ENV
+        env:
+          PLATFORM: ${{ matrix.platform }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          push: true
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ needs.publish.outputs.version }}
+            ghcr.io/${{ github.repository }}:${{ env.PLATFORM_TAG }}
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.publish.outputs.tag }}
+          body: |
+            Docker image available at:
+            - `ghcr.io/${{ github.repository }}:${{ needs.publish.outputs.version }}`
+            - `ghcr.io/${{ github.repository }}:latest`
+            
+            With platform-specific tags:
+            - `ghcr.io/${{ github.repository }}:linux-amd64`
+            - `ghcr.io/${{ github.repository }}:linux-arm64`
+          draft: false
+          prerelease: false
