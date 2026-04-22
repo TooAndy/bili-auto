@@ -1,4 +1,13 @@
 
+## [1.0.7](https://github.com/TooAndy/bili-auto/releases/tag/v1.0.7) (2026-04-22T12:24:54Z)
+
+### Changes
+
+* fix: include changelog in release body ([5bbf526](https://github.com/TooAndy/bili-auto/commit/5bbf52607074b730bbd4eadc7cb0fa414f56cfb0))
+* Merge branch 'main' of github.com:TooAndy/bili-auto ([8100c82](https://github.com/TooAndy/bili-auto/commit/8100c829582eec14382348354b8858f3a4fe48e3))
+* Merge remote-tracking branch 'refs/remotes/origin/main' ([7608246](https://github.com/TooAndy/bili-auto/commit/76082468016380942f605c6ea48561550e916163))
+* Merge remote-tracking branch 'refs/remotes/origin/main' ([48c197b](https://github.com/TooAndy/bili-auto/commit/48c197b7d1d5f0189f63ae0d878a8c4566cae243))
+
 ## [1.0.6](https://github.com/TooAndy/bili-auto/releases/tag/v1.0.6) (2026-04-22T12:15:09Z)
 
 ### Changes

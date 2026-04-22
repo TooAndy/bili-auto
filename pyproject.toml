@@ -1,6 +1,6 @@
 [project]
 name = "bili"
-version = "1.0.6"
+version = "1.0.7"
 description = "B站UP主自动化摘要系统"
 readme = "README.md"
 requires-python = ">=3.12"
