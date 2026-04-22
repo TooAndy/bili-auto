@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/TooAndy/bili-auto/compare/v1.0.0...v1.0.1) (2026-04-22)
+
+
+### Bug Fixes
+
+* ensure docker builds on tag push, not just released output ([8f5ae08](https://github.com/TooAndy/bili-auto/commit/8f5ae08936cd0688f3ea48384418049318150411))
+* ensure docker builds on tag push, not just released output ([8f5029d](https://github.com/TooAndy/bili-auto/commit/8f5029d4d00f671b1ac6bb7292979a31be24c447))
+
 ## 1.0.0 (2026-04-22)
 
 
