@@ -50,7 +50,7 @@ def _classify_title(uploader_name: str, title: str) -> Optional[str]:
         rules = session.query(ClassificationRule).filter(
             (ClassificationRule.uploader_name == uploader_name) |
             (ClassificationRule.uploader_name == "*"),
-            ClassificationRule.is_active == True,
+            ClassificationRule.is_active is True,
             ClassificationRule.pattern.isnot(None)
         ).order_by(ClassificationRule.priority).all()
 

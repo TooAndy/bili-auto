@@ -95,7 +95,7 @@ def list_rules(
             )
 
         if not show_inactive:
-            query = query.filter(ClassificationRule.is_active == True)
+            query = query.filter(ClassificationRule.is_active is True)
 
         rules = query.order_by(ClassificationRule.uploader_name, ClassificationRule.priority).all()
 
