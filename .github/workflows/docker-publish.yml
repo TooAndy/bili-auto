@@ -1,7 +1,10 @@
 name: Docker Publish
 
-# 只监听 tag push，完全独立于 release-please
+# 监听 GitHub Release 发布（release-please 通过 API 创建）
+# 和手动 git push tag
 on:
+  release:
+    types: [published]
   push:
     tags:
       - 'v*'
