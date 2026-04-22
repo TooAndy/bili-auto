@@ -1,0 +1,137 @@
+# Changelog
+
+## [1.0.4](https://github.com/TooAndy/bili-auto/compare/v1.0.3...v1.0.4) (2026-04-22)
+
+
+### Bug Fixes
+
+* add release published trigger to docker workflow ([#15](https://github.com/TooAndy/bili-auto/issues/15)) ([3a0d7a3](https://github.com/TooAndy/bili-auto/commit/3a0d7a318a79385a8fa0e5eb88d7ead0c839babf))
+
+## [1.0.3](https://github.com/TooAndy/bili-auto/compare/v1.0.2...v1.0.3) (2026-04-22)
+
+
+### Bug Fixes
+
+* change release-please to manual trigger, docker listens to tag push ([5ee83ca](https://github.com/TooAndy/bili-auto/commit/5ee83caa0b26ff401163c17b1aec2f06b184c5e4))
+* change release-please to manual trigger, docker listens to tag push ([7dc0df5](https://github.com/TooAndy/bili-auto/commit/7dc0df507dd2681cb6c49a9002c94f24936d9726))
+
+## [1.0.2](https://github.com/TooAndy/bili-auto/compare/v1.0.1...v1.0.2) (2026-04-22)
+
+
+### Bug Fixes
+
+* listen for tag push events to trigger docker build ([a76702d](https://github.com/TooAndy/bili-auto/commit/a76702da0b0dd3fd1f2e4cd5d1566ec503a7ade2))
+* listen for tag push events to trigger docker build ([d96baba](https://github.com/TooAndy/bili-auto/commit/d96babab20269548dcf000d36845f7e452d49571))
+
+## [1.0.1](https://github.com/TooAndy/bili-auto/compare/v1.0.0...v1.0.1) (2026-04-22)
+
+
+### Bug Fixes
+
+* ensure docker builds on tag push, not just released output ([8f5ae08](https://github.com/TooAndy/bili-auto/commit/8f5ae08936cd0688f3ea48384418049318150411))
+* ensure docker builds on tag push, not just released output ([8f5029d](https://github.com/TooAndy/bili-auto/commit/8f5029d4d00f671b1ac6bb7292979a31be24c447))
+
+## 1.0.0 (2026-04-22)
+
+
+### Features
+
+* add 'bili' CLI command and test commands to README ([7657cbf](https://github.com/TooAndy/bili-auto/commit/7657cbf5f9346dce4aacca2b9bbc96a3ee44798a))
+* add Docker deployment files ([5e7cbe8](https://github.com/TooAndy/bili-auto/commit/5e7cbe8d21e8ec22c70bb8bac14dac9f7556bc93))
+* add per-uploader LLM prompt template support ([72927a6](https://github.com/TooAndy/bili-auto/commit/72927a60bf8b07b79f75f97833270933340d7fbd))
+* add per-uploader LLM prompt template support ([a4d2c84](https://github.com/TooAndy/bili-auto/commit/a4d2c845e75adf173c4259cdfa3aab789dd57c7d))
+* add release-please workflow and CONTRIBUTING guide ([0f0ad22](https://github.com/TooAndy/bili-auto/commit/0f0ad22f706ac92b6c86e61e79641210a527f78e))
+* add test commands for push channels ([5ee909d](https://github.com/TooAndy/bili-auto/commit/5ee909d379e1b937ab59330febd9ff0f1161f487))
+* add video_bvid column to Dynamic model ([d431e7d](https://github.com/TooAndy/bili-auto/commit/d431e7d514d7292823f36b1254d5673b25d67390))
+* add whisper_downloader.py and README Docker section ([9f5646f](https://github.com/TooAndy/bili-auto/commit/9f5646fd70140cc91f4b27400a44025a46298369))
+* auto-migrate llm_folders column if missing ([f97f2a2](https://github.com/TooAndy/bili-auto/commit/f97f2a2598f90bbf52726507e2bfa4c4b7ee433f))
+* CLI unification + WeChat channel + configurable push channels ([ac8a17c](https://github.com/TooAndy/bili-auto/commit/ac8a17cbaefe1893bd09213f0092aa8e864e92a8))
+* create Video record when video dynamic detected ([fdf2090](https://github.com/TooAndy/bili-auto/commit/fdf209017449e056c16e69a3e1a0761746c873c3))
+* extract bvid from video dynamics in _parse_dynamic ([411d612](https://github.com/TooAndy/bili-auto/commit/411d612ede1ca4d935b6bda8100a59551df91817))
+* fetch_channel_videos 也使用 WBI 签名接口 ([a900d95](https://github.com/TooAndy/bili-auto/commit/a900d95a0ff6c457f96b77b38f190d674cccb263))
+* implement init_services with whisper auto-download ([81b9a67](https://github.com/TooAndy/bili-auto/commit/81b9a6773ce959715b2a6e017a2f4a098236b1aa))
+* remove check_new_videos, use dynamics for all content detection ([33b8811](https://github.com/TooAndy/bili-auto/commit/33b8811844f139319db625786e210b63d6684d7e))
+* 保存视频文本和详情到 data/ 目录 ([80ca784](https://github.com/TooAndy/bili-auto/commit/80ca7848c522f7d01081623172fd4d5f6d09ef28))
+* 删除不再使用的数据库迁移和测试脚本 ([6bcbca3](https://github.com/TooAndy/bili-auto/commit/6bcbca318ccbc7bf5d5c60dade6f75a0b6a5088e))
+* 动态推送改用飞书卡片消息，支持内嵌图片 ([6fa2a56](https://github.com/TooAndy/bili-auto/commit/6fa2a561dc44dfc780e83582f39b40dd0d87b18f))
+* 如果已有识别文本则跳过下载和识别 ([e5c04ba](https://github.com/TooAndy/bili-auto/commit/e5c04baded186cf1f74dc305fbb93d4dff1b8df5))
+* 完善 B站 Cookie 刷新机制 ([55da73e](https://github.com/TooAndy/bili-auto/commit/55da73e8b7261b0531d1fc1f7eea318bed644676))
+* 完善 B站 Cookie 自动刷新机制 ([5a8f307](https://github.com/TooAndy/bili-auto/commit/5a8f307cf21408af594ae181831ed14dad269f67))
+* 完成B站自动化摘要系统阶段一MVP核心功能 ([37603d7](https://github.com/TooAndy/bili-auto/commit/37603d7eeff9c031e5e89bb8b8e5965eaad2de8f))
+* 实现 B站 WBI 签名机制 ([3d2611c](https://github.com/TooAndy/bili-auto/commit/3d2611c1e77154ca61e1efd5b6ae1be8f4187674))
+* 实现动态视频检测，新增 video_bvid 字段并提取 bvid，创建 Video 记录 ([c91ce99](https://github.com/TooAndy/bili-auto/commit/c91ce990c34f0d83a2ba243c1825b7a2dbabb7cc))
+* 按天轮转日志，保留30天 ([18255bc](https://github.com/TooAndy/bili-auto/commit/18255bcc60dab0f6dcfc1434bda3bb16e6e0965a))
+* 提取并展示 B站动态标题，推送时标题加粗显示 ([b31f8f8](https://github.com/TooAndy/bili-auto/commit/b31f8f8d10a6f6e83c9faba6e60a0485fd5bfc55))
+* 支持在 .env 中配置视频和动态检测间隔 ([744c007](https://github.com/TooAndy/bili-auto/commit/744c00731c09b6a2e36bd2ce5769dad681426703))
+* 改进文件命名方式，使用日期+编号+标题格式 ([50f9926](https://github.com/TooAndy/bili-auto/commit/50f99268130a52cf5fd78456b8b6eb330570ad7b))
+* 更新处理提示和输出格式，支持股票信息提取 ([d2a75a8](https://github.com/TooAndy/bili-auto/commit/d2a75a8cdab7a96f602510c1c4a827387fab6c39))
+* 添加 --skip-queue 参数支持仅下载视频 ([7165922](https://github.com/TooAndy/bili-auto/commit/71659221ec55b7031a5bcc18faddb6a5ef409368))
+* 添加 B站扫码登录命令，获取配套的 refresh_token 和 Cookie ([15d43d2](https://github.com/TooAndy/bili-auto/commit/15d43d2a74bc9d7ca8bf075007b5006fe3515262))
+* 添加 CI 流程和单元测试框架 ([350bfe8](https://github.com/TooAndy/bili-auto/commit/350bfe87403c8b12c25e295e4439e969ee5283c3))
+* 添加 details 字段保存详细总结内容 ([e147f24](https://github.com/TooAndy/bili-auto/commit/e147f2406677cfb94ba3636cc7dc5a12348d6903))
+* 添加 gstack 和 plan-ceo-review 技能到配置文件 ([9ff5e0e](https://github.com/TooAndy/bili-auto/commit/9ff5e0e43509f7d773edcb02671987e8b1be8413))
+* 添加 ruff 作为测试依赖，并更新 uv.lock ([f3ba34b](https://github.com/TooAndy/bili-auto/commit/f3ba34bd81189aa2535c0c263121da3710bc3cd1))
+* 添加 WBI 接口降级方案 ([51f2cde](https://github.com/TooAndy/bili-auto/commit/51f2cde0ea22f60d137dd1b67d57806ab87577b1))
+* 添加单视频下载工具 ([0484a6b](https://github.com/TooAndy/bili-auto/commit/0484a6bbd531cc589f78f58c68d41e84ec226797))
+* 添加基于 refresh_token 的 B站 Cookie 自动刷新功能 ([c9ac633](https://github.com/TooAndy/bili-auto/commit/c9ac6338d3ee67fb0d75ef62c6a3e5c593173dfc))
+* 添加批量下载 UP主视频功能 ([e364399](https://github.com/TooAndy/bili-auto/commit/e3643999d339681daf2e7afb3f7764f946363dbe))
+* 添加批量下载和清理工具 ([e220df5](https://github.com/TooAndy/bili-auto/commit/e220df5ac1f5a1ea2f13cfedad44c8cb4505559c))
+* 添加重置 processing 状态的脚本 ([4c8710c](https://github.com/TooAndy/bili-auto/commit/4c8710c6a12e05fca3b0f78577616bdb97737695))
+* 添加飞书文档分类规则功能 ([9959418](https://github.com/TooAndy/bili-auto/commit/9959418de1443af4acc38dfbf13337f4f6700ee3))
+* 添加飞书文档功能，视频处理完成后自动上传总结 ([594010b](https://github.com/TooAndy/bili-auto/commit/594010b48cc82e51cc313278b02bdf26a23ae222))
+* 添加飞书通知功能 ([c9c85e1](https://github.com/TooAndy/bili-auto/commit/c9c85e14e340e0bc5f2ee8683e40e5df2acf5646))
+* 重新设计数据路径结构，按UP主分类组织 ([f4336cb](https://github.com/TooAndy/bili-auto/commit/f4336cb0fb2b79ba4b5549aa343a5580818239de))
+* 重构 CI，添加集成测试工作流 ([82341c6](https://github.com/TooAndy/bili-auto/commit/82341c6ae691374a491c6e91018e59bddd5f6e99))
+* 音频下载改用 m4a 格式节省空间 ([f451dae](https://github.com/TooAndy/bili-auto/commit/f451daef8660129ecb13b164e2e6c084c3038d3b))
+
+
+### Bug Fixes
+
+* add permissions for release-please to create PRs ([7cdf2d9](https://github.com/TooAndy/bili-auto/commit/7cdf2d9c1d64a87b8401e120c68c0cd54c629c17))
+* add permissions for release-please to create PRs ([1d3505f](https://github.com/TooAndy/bili-auto/commit/1d3505f075347464e6d7f643551828eda4eae079))
+* add ruff to test deps, ensure logs dir exists before file handler ([170c87c](https://github.com/TooAndy/bili-auto/commit/170c87c191dd416250c83128c94751e1f6e20310))
+* align pre-push hook with CI config ([91ad336](https://github.com/TooAndy/bili-auto/commit/91ad3362f71ba6b76cdc55f8d7ed774f64fc611e))
+* bili-rules list - fix is_active comparison and typer colors ([9045848](https://github.com/TooAndy/bili-auto/commit/9045848e04596f3b1097d0b4ec2452e9d235ac04))
+* CI lint job should use --all-extras to install ruff ([cbee976](https://github.com/TooAndy/bili-auto/commit/cbee97674bb45cbcb20c5cf23b0ef5d3095bb4de))
+* copy all code before uv sync (fix package directory error) ([8e92d4e](https://github.com/TooAndy/bili-auto/commit/8e92d4e0c2af074822a19d7ae2dfa7da5a7667e9))
+* correct GHCR repository case to TooAndy ([808a094](https://github.com/TooAndy/bili-auto/commit/808a0945953b6c4f502e8641ace94409a710e791))
+* export get_enabled_channels from push.py ([a1c3eae](https://github.com/TooAndy/bili-auto/commit/a1c3eaea3fa0d68a32c8e4a642e52f177eaf60ba))
+* ignore integration tests in CI to fix database errors ([d41bc2a](https://github.com/TooAndy/bili-auto/commit/d41bc2a3fb6141b72f9f2440ea4fbe65b1b39149))
+* normalize platform name for Docker tag (replace / with -) ([52a8e24](https://github.com/TooAndy/bili-auto/commit/52a8e2439a990d204783b791f53466fa1b6e65c8))
+* pyproject.toml explicit packages to avoid setuptools discovery error ([c953ad3](https://github.com/TooAndy/bili-auto/commit/c953ad31817fe1a7a21ee8a3352074e92a1dc16d))
+* remove extraneous f-prefix from logger.info (ruff F541) ([e215812](https://github.com/TooAndy/bili-auto/commit/e215812db7633be24de882178b2b2e464638d146))
+* skip integration test that requires real Feishu API, add cli.py to coverage omit ([7c78740](https://github.com/TooAndy/bili-auto/commit/7c787402d0a92354629c97f2901aa4af5ba98b18))
+* use .is_(True) for SQLAlchemy boolean comparison ([7f202f5](https://github.com/TooAndy/bili-auto/commit/7f202f560821a0d50e1fbdd04624126c1525b669))
+* use 'is' for boolean comparison instead of '==' ([a62c9e6](https://github.com/TooAndy/bili-auto/commit/a62c9e60cf9628e45e6b4bb688f8245189b26867))
+* use lowercase ghcr.io/tooandy for Docker registry (lowercase required) ([bfc396d](https://github.com/TooAndy/bili-auto/commit/bfc396d8593341c21ae6e5cfe16cd06f1e3f8bb9))
+* yt-dlp 使用 Cookie 下载完整会员视频 ([357217f](https://github.com/TooAndy/bili-auto/commit/357217f548ad95cf563a62a13eef37e616874e7c))
+* 为 whisper.cpp 输出文件添加随机字符串防止多进程冲突 ([d200d61](https://github.com/TooAndy/bili-auto/commit/d200d617d8c776ddc4a3220f44d405146b5b2084))
+* 使用 Netscape cookie 文件格式传递 Cookie 给 yt-dlp ([ab8d757](https://github.com/TooAndy/bili-auto/commit/ab8d757a816d69db1e5e11fa668e6f54e5ff6240))
+* 使用正确的 WBI 签名算法 ([8efe1c4](https://github.com/TooAndy/bili-auto/commit/8efe1c441d053b9d9907f4953625537d5b4275c8))
+* 修复 B站动态检测解析错误 ([72aac98](https://github.com/TooAndy/bili-auto/commit/72aac98646256f00883076e070ad499fc2821d49))
+* 修复 SQLAlchemy 连接池耗尽问题 ([fd98b6d](https://github.com/TooAndy/bili-auto/commit/fd98b6d0036f6eb6ee2939c9ef7f278e04a72c2e))
+* 修复 SQLite 并发锁定和视频路径问题 ([06246bc](https://github.com/TooAndy/bili-auto/commit/06246bc377b528eac5b09c6bff79cc3712584c19))
+* 修复动态时间戳解析和飞书文档命名问题 ([e207433](https://github.com/TooAndy/bili-auto/commit/e2074334ef605e8f0cc96eb13ad57ca8713d01c1))
+* 修复所有单元测试 ([4b05619](https://github.com/TooAndy/bili-auto/commit/4b056197f985d0b4caddf0b0180901ee59a3ff01))
+* 修复视频被重复处理的问题 ([102d611](https://github.com/TooAndy/bili-auto/commit/102d611bede8993a8a23e45e9e93f622f4154369))
+* 修复程序中断后任务卡在 processing 状态的问题 ([60b0a3f](https://github.com/TooAndy/bili-auto/commit/60b0a3fcd086bada8193c66cf9d0fad124736901))
+* 动态图片提取和飞书推送 ([41e0893](https://github.com/TooAndy/bili-auto/commit/41e0893f8b6171c9b64ccb1d7413f3f7aea36059))
+* 动态按发布时间升序处理，确保最早发布的先推送 ([49fbf4a](https://github.com/TooAndy/bili-auto/commit/49fbf4a52ed2e7d9563206a82f316369637d3ffb))
+* 动态检测时按发布时间顺序立即推送，不再经过队列 ([ff000ae](https://github.com/TooAndy/bili-auto/commit/ff000aed37de883a838f2d9178ad1ba5e3abe326))
+* 将 LLM 处理完成的日志级别从 info 改为 debug ([f7390ce](https://github.com/TooAndy/bili-auto/commit/f7390ce660fb9c978bf21f568ad5216bc099d186))
+* 将 Markdown 中的发布时间改为人类友好格式 ([7e5a03c](https://github.com/TooAndy/bili-auto/commit/7e5a03ca5e0a527a0c5adc44ee2703cc5f776ed6))
+* 改用 upload_all API 上传 markdown 文件到飞书云盘 ([4ef2f71](https://github.com/TooAndy/bili-auto/commit/4ef2f71160d8501d9d75bb43b8862bac29f1d1db))
+* 改进 WBI 接口请求参数和请求头 ([01654fc](https://github.com/TooAndy/bili-auto/commit/01654fcc4dbde19d2dadb681f378a051dac7a1fd))
+* 改进飞书文件夹查找和缓存验证逻辑 ([4dbfb96](https://github.com/TooAndy/bili-auto/commit/4dbfb960a99772bd23db56579b43b60300810ab3))
+* 更新 WBI 密钥获取失败的错误处理，增加异常抛出 ([07ab7d5](https://github.com/TooAndy/bili-auto/commit/07ab7d5079625402d33c6addd9e9853b0c8f580d))
+* 添加 .coverage 文件到 .gitignore ([ccb0475](https://github.com/TooAndy/bili-auto/commit/ccb0475ae9bc9061aa29361c7598e658ee30ee2a))
+* 添加 BILIBILI_COOKIE 必要检查和请求延迟 ([c9940dd](https://github.com/TooAndy/bili-auto/commit/c9940dd04bb691b9066fe259c54e4cf006cbbf43))
+* 添加数据库迁移脚本 ([5c498b0](https://github.com/TooAndy/bili-auto/commit/5c498b0e29886d12bd006f432ad80b3897bd627d))
+* 移除 environment 配置，简化集成测试流程 ([552c452](https://github.com/TooAndy/bili-auto/commit/552c452e4a706c82e2454452c56a5fac35ace2b0))
+* 飞书卡片消息 text 字段格式错误 ([26e04dd](https://github.com/TooAndy/bili-auto/commit/26e04ddb2fa7bd9798d99e1a9a620ac635fc2fd1))
+* 默认分类现在会创建独立的"默认"子文件夹 ([1c47722](https://github.com/TooAndy/bili-auto/commit/1c47722c8af69da192b762690cb9a731e9c82fea))
+
+
+### Performance Improvements
+
+* 使用 requests.Session 复用连接，减少 API 限流 ([9dbdeed](https://github.com/TooAndy/bili-auto/commit/9dbdeeddad3de7d7692434269d9778cdfb9bfe37))

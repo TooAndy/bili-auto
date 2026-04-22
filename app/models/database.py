@@ -7,6 +7,7 @@ from sqlalchemy import (
     Text,
     JSON,
     create_engine,
+    text,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker
 from datetime import datetime
@@ -18,6 +19,7 @@ Base = declarative_base()
 
 class Subscription(Base):
     """UP主订阅表"""
+
     __tablename__ = "subscriptions"
 
     id = Column(Integer, primary_key=True)
@@ -33,6 +35,7 @@ class Subscription(Base):
 
 class Video(Base):
     """视频表"""
+
     __tablename__ = "videos"
 
     id = Column(Integer, primary_key=True)
@@ -57,6 +60,7 @@ class Video(Base):
 
 class Dynamic(Base):
     """动态表"""
+
     __tablename__ = "dynamics"
 
     id = Column(Integer, primary_key=True)
@@ -69,7 +73,9 @@ class Dynamic(Base):
     image_count = Column(Integer, default=0)  # 图片数量
     images_path = Column(Text, nullable=True)  # 本地图片路径 JSON
     image_urls = Column(Text, nullable=True)  # 原始图片URLs JSON
-    status = Column(String, default="pending")  # pending|processing|sent|filtered|failed
+    status = Column(
+        String, default="pending"
+    )  # pending|processing|sent|filtered|failed
     push_status = Column(String, default="pending")  # 推送状态
     pub_time = Column(DateTime, nullable=True)  # 发布时间
     pushed_at = Column(DateTime, nullable=True)  # 推送时间
@@ -81,6 +87,7 @@ class Dynamic(Base):
 
 class Summary(Base):
     """总结结果表（不再直接使用，改为存在Video中）"""
+
     __tablename__ = "summaries"
 
     id = Column(Integer, primary_key=True)
@@ -93,6 +100,7 @@ class Summary(Base):
 
 class Log(Base):
     """日志表（可选，用于监控）"""
+
     __tablename__ = "logs"
 
     id = Column(Integer, primary_key=True)
@@ -104,28 +112,37 @@ class Log(Base):
 
 class ClassificationRule(Base):
     """视频分类规则表"""
+
     __tablename__ = "classification_rules"
 
     id = Column(Integer, primary_key=True)
     uploader_name = Column(String, nullable=False)  # UP主名称，"*" 表示所有UP主
-    pattern = Column(String, nullable=True)          # 正则表达式（使用LLM分类时可为NULL）
-    target_folder = Column(String, nullable=True)    # 目标文件夹名称（使用LLM分类时可为NULL）
-    llm_folders = Column(JSON, nullable=True)      # LLM分类文件夹列表，如 ["每日投资记录", "闲聊"]
-    priority = Column(Integer, default=100)         # 优先级，数字越小越先匹配
-    is_active = Column(Boolean, default=True)      # 是否启用
+    pattern = Column(String, nullable=True)  # 正则表达式（使用LLM分类时可为NULL）
+    target_folder = Column(
+        String, nullable=True
+    )  # 目标文件夹名称（使用LLM分类时可为NULL）
+    llm_folders = Column(
+        JSON, nullable=True
+    )  # LLM分类文件夹列表，如 ["每日投资记录", "闲聊"]
+    prompt_template = Column(Text, nullable=True)  # Per-uploader LLM prompt 模板
+    priority = Column(Integer, default=100)  # 优先级，数字越小越先匹配
+    is_active = Column(Boolean, default=True)  # 是否启用
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class FolderMapping(Base):
     """飞书文件夹映射表"""
+
     __tablename__ = "folder_mappings"
 
     id = Column(Integer, primary_key=True)
     uploader_name = Column(String, nullable=False)  # UP主名称
-    category = Column(String, nullable=False)       # 分类名称
+    category = Column(String, nullable=False)  # 分类名称
     folder_token = Column(String, nullable=False)  # 飞书文件夹 token
-    folder_path = Column(String, unique=True, nullable=False)  # 完整路径，如 "呆咪/每日投资记录"
+    folder_path = Column(
+        String, unique=True, nullable=False
+    )  # 完整路径，如 "呆咪/每日投资记录"
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -139,12 +156,15 @@ engine = create_engine(
     connect_args={
         "check_same_thread": False,
         "timeout": 30,  # 30秒超时
-    } if "sqlite" in Config.DATABASE_URL else {}
+    }
+    if "sqlite" in Config.DATABASE_URL
+    else {},
 )
 
 # 启用 WAL 模式以支持并发读写
 if "sqlite" in Config.DATABASE_URL:
     from sqlalchemy import event
+
     @event.listens_for(engine, "connect")
     def set_sqlite_pragma(dbapi_conn, connection_record):
         cursor = dbapi_conn.cursor()
@@ -155,6 +175,7 @@ if "sqlite" in Config.DATABASE_URL:
         # 设置忙时重试超时（毫秒）
         cursor.execute("PRAGMA busy_timeout=30000")
         cursor.close()
+
 
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
@@ -178,10 +199,26 @@ def init_services():
 
     # whisper.cpp 自动下载
     from app.utils.whisper_downloader import setup_whisper
+
     if setup_whisper():
         print("✓ whisper.cpp 准备就绪")
     else:
         print("⚠ whisper.cpp 未就绪，将使用 faster-whisper")
+
+
+def _add_column_if_missing(
+    session, table_name: str, column_name: str, column_type: str = "TEXT"
+):
+    """如果列不存在则添加"""
+    result = session.execute(text(f"PRAGMA table_info({table_name})"))
+    columns = [row[1] for row in result.fetchall()]
+    if column_name not in columns:
+        print(f"  → 检测到缺少 {column_name} 列，执行迁移...")
+        session.execute(
+            text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}")
+        )
+        session.commit()
+        print(f"  ✓ {column_name} 列已添加")
 
 
 def _migrate_if_needed():
@@ -189,19 +226,12 @@ def _migrate_if_needed():
     if "sqlite" not in Config.DATABASE_URL:
         return  # 目前仅支持 SQLite 自动迁移
 
-    from sqlalchemy import text
     session = SessionLocal()
     try:
-        # 获取当前表的所有列
-        result = session.execute(text("PRAGMA table_info(classification_rules)"))
-        columns = [row[1] for row in result.fetchall()]
-
-        # 检查 llm_folders 列是否存在
-        if "llm_folders" not in columns:
-            print("  → 检测到缺少 llm_folders 列，执行迁移...")
-            session.execute(text("ALTER TABLE classification_rules ADD COLUMN llm_folders TEXT"))
-            session.commit()
-            print("  ✓ llm_folders 列已添加")
+        _add_column_if_missing(session, "classification_rules", "llm_folders", "TEXT")
+        _add_column_if_missing(
+            session, "classification_rules", "prompt_template", "TEXT"
+        )
     except Exception as e:
         session.rollback()
         print(f"  ⚠ 数据库迁移失败: {e}")
