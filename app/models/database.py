@@ -162,7 +162,33 @@ SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 def init_db():
     """初始化数据库"""
     Base.metadata.create_all(engine)
+    _migrate_if_needed()
     print("✓ 数据库初始化完成")
+
+
+def _migrate_if_needed():
+    """检查并执行必要的数据库迁移"""
+    if "sqlite" not in Config.DATABASE_URL:
+        return  # 目前仅支持 SQLite 自动迁移
+
+    from sqlalchemy import text
+    session = SessionLocal()
+    try:
+        # 获取当前表的所有列
+        result = session.execute(text("PRAGMA table_info(classification_rules)"))
+        columns = [row[1] for row in result.fetchall()]
+
+        # 检查 llm_folders 列是否存在
+        if "llm_folders" not in columns:
+            print("  → 检测到缺少 llm_folders 列，执行迁移...")
+            session.execute(text("ALTER TABLE classification_rules ADD COLUMN llm_folders TEXT"))
+            session.commit()
+            print("  ✓ llm_folders 列已添加")
+    except Exception as e:
+        session.rollback()
+        print(f"  ⚠ 数据库迁移失败: {e}")
+    finally:
+        session.close()
 
 
 def get_db():
