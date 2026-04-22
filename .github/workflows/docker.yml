@@ -13,6 +13,11 @@ jobs:
       matrix:
         platform: [linux/amd64, linux/arm64]
     steps:
+      - name: Normalize platform name for Docker tag
+        run: echo "PLATFORM_TAG=${PLATFORM//\//-}" >> $GITHUB_ENV
+        env:
+          PLATFORM: ${{ matrix.platform }}
+
       - uses: actions/checkout@v4
 
       - name: Set up QEMU
@@ -38,5 +43,5 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
           tags: |
             ghcr.io/tooandy/bili-auto:latest
-            ghcr.io/tooandy/bili-auto:${{ matrix.platform }}
+            ghcr.io/tooandy/bili-auto:${{ env.PLATFORM_TAG }}
             ghcr.io/tooandy/bili-auto:${{ github.sha }}
