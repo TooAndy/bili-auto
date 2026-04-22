@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.4](https://github.com/TooAndy/bili-auto/compare/v1.0.3...v1.0.4) (2026-04-22)
+
+
+### Bug Fixes
+
+* add release published trigger to docker workflow ([#15](https://github.com/TooAndy/bili-auto/issues/15)) ([3a0d7a3](https://github.com/TooAndy/bili-auto/commit/3a0d7a318a79385a8fa0e5eb88d7ead0c839babf))
+
 ## [1.0.3](https://github.com/TooAndy/bili-auto/compare/v1.0.2...v1.0.3) (2026-04-22)
 
 
