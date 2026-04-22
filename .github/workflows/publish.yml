@@ -121,8 +121,10 @@ jobs:
         with:
           ref: ${{ needs.publish.outputs.tag }}
 
-      - name: Normalize platform name
-        run: echo "PLATFORM_TAG=${PLATFORM//\//-}" >> $GITHUB_ENV
+      - name: Normalize platform name and repository
+        run: |
+          echo "PLATFORM_TAG=${PLATFORM//\//-}" >> $GITHUB_ENV
+          echo "IMAGE_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
         env:
           PLATFORM: ${{ matrix.platform }}
 
@@ -148,9 +150,9 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
           tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ needs.publish.outputs.version }}
-            ghcr.io/${{ github.repository }}:${{ env.PLATFORM_TAG }}
+            ghcr.io/${{ env.IMAGE_NAME }}:latest
+            ghcr.io/${{ env.IMAGE_NAME }}:${{ needs.publish.outputs.version }}
+            ghcr.io/${{ env.IMAGE_NAME }}:${{ env.PLATFORM_TAG }}
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -158,11 +160,11 @@ jobs:
           tag_name: ${{ needs.publish.outputs.tag }}
           body: |
             Docker image available at:
-            - `ghcr.io/${{ github.repository }}:${{ needs.publish.outputs.version }}`
-            - `ghcr.io/${{ github.repository }}:latest`
+            - `ghcr.io/${{ env.IMAGE_NAME }}:${{ needs.publish.outputs.version }}`
+            - `ghcr.io/${{ env.IMAGE_NAME }}:latest`
             
             With platform-specific tags:
-            - `ghcr.io/${{ github.repository }}:linux-amd64`
-            - `ghcr.io/${{ github.repository }}:linux-arm64`
+            - `ghcr.io/${{ env.IMAGE_NAME }}:linux-amd64`
+            - `ghcr.io/${{ env.IMAGE_NAME }}:linux-arm64`
           draft: false
           prerelease: false
