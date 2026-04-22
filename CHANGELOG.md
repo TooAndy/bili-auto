@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.3](https://github.com/TooAndy/bili-auto/compare/v1.0.2...v1.0.3) (2026-04-22)
+
+
+### Bug Fixes
+
+* change release-please to manual trigger, docker listens to tag push ([5ee83ca](https://github.com/TooAndy/bili-auto/commit/5ee83caa0b26ff401163c17b1aec2f06b184c5e4))
+* change release-please to manual trigger, docker listens to tag push ([7dc0df5](https://github.com/TooAndy/bili-auto/commit/7dc0df507dd2681cb6c49a9002c94f24936d9726))
+
 ## [1.0.2](https://github.com/TooAndy/bili-auto/compare/v1.0.1...v1.0.2) (2026-04-22)
 
 
