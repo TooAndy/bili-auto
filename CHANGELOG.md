@@ -1,3 +1,9 @@
+
+## [1.0.5](https://github.com/TooAndy/bili-auto/releases/tag/v1.0.5) (2026-04-22T12:05:45Z)
+
+### Changes
+
+* chore: replace release-please and docker-publish with unified publish workflow (#17) ([e9a4791](https://github.com/TooAndy/bili-auto/commit/e9a4791072ccc48694878524d8da6e9f92571160))
 # Changelog
 
 ## [1.0.4](https://github.com/TooAndy/bili-auto/compare/v1.0.3...v1.0.4) (2026-04-22)
