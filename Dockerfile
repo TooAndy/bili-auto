@@ -10,14 +10,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # 安装 uv
 RUN pip install uv
 
-# 复制依赖文件
-COPY pyproject.toml uv.lock ./
-
-# 安装依赖（利用缓存）并安装项目本身
-RUN uv sync --frozen && uv pip install -e .
-
-# 复制代码
+# 复制全部代码
 COPY . .
+
+# 安装依赖并安装项目本身
+RUN uv sync --frozen && uv pip install -e .
 
 # 创建数据目录
 RUN mkdir -p /app/data /app/logs /app/models
