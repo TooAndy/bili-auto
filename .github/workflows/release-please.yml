@@ -11,6 +11,9 @@ on:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     outputs:
       released: ${{ steps.release.outputs.released }}
     steps:
