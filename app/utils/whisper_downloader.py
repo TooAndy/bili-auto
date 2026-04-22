@@ -124,7 +124,7 @@ def ensure_whisper_cli(cli_path: str) -> bool:
         logger.debug(f"whisper.cpp CLI exists: {cli_path}")
         return True
 
-    logger.info(f"Downloading whisper.cpp CLI...")
+    logger.info("Downloading whisper.cpp CLI...")
     try:
         url, filename = _get_cli_download_url()
         temp_path = Path(cli_path + ".tmp")
@@ -145,7 +145,7 @@ def ensure_whisper_model(model_path: str) -> bool:
         logger.debug(f"whisper model exists: {model_path}")
         return True
 
-    logger.info(f"Downloading ggml-small.bin model (~500MB)...")
+    logger.info("Downloading ggml-small.bin model (~500MB)...")
     try:
         temp_path = Path(model_path + ".tmp")
         if _download_with_progress(MODEL_URL, temp_path, GGML_SMALL_SHA256):
