@@ -95,6 +95,10 @@ def list_rules(
             )
 
         if not show_inactive:
+            # 用 .is_(True) 而不是 == True 或 is True：
+            # - is True 在 SQLAlchemy filter 中不生成正确 SQL，返回 0 条
+            # - == True 可工作但部分 lint 规则不喜欢
+            # - .is_(True) 生成 ANSI SQL 的 IS TRUE 语法，最标准
             query = query.filter(ClassificationRule.is_active.is_(True))
 
         rules = query.order_by(ClassificationRule.uploader_name, ClassificationRule.priority).all()

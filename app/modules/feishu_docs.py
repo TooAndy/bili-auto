@@ -47,6 +47,10 @@ def _classify_title(uploader_name: str, title: str) -> Optional[str]:
             # LLM 分类失败，继续尝试正则
 
         # 回退到正则表达式规则
+        # 用 .is_(True) 而不是 == True 或 is True：
+        # - is True 在 SQLAlchemy filter 中不生成正确 SQL，返回 0 条
+        # - == True 可工作但部分 lint 规则不喜欢
+        # - .is_(True) 生成 ANSI SQL 的 IS TRUE 语法，最标准
         rules = session.query(ClassificationRule).filter(
             (ClassificationRule.uploader_name == uploader_name) |
             (ClassificationRule.uploader_name == "*"),
