@@ -1,12 +1,30 @@
-name: Docker Build
+name: Release Please
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  build:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      released: ${{ steps.release.outputs.released }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          release-type: simple
+          package-name: bili-auto
+          target-branch: main
+
+  # 只有真正发布时才触发 Docker 构建
+  docker:
+    needs: release-please
+    if: needs.release-please.outputs.released == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
