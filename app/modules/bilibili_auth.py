@@ -498,14 +498,15 @@ JNrRuoEUXpabUzGB8QIDAQAB
             # 如果距离上次检查不到1小时，跳过
             if current_time - last_check < 3600:
                 logger.debug("Cookie最近已检查，跳过")
+                # 注意：这里不更新时间戳，保持上次的检查结果
                 return current_cookie, False
+
+            # 更新检查时间（即使后续检查失败，也记录本次检查时间）
+            self.auth_data["last_check_time"] = current_time
+            self._save_auth_data()
 
             # 检查是否需要刷新
             need_refresh, timestamp = await self.check_need_refresh(current_cookie)
-
-            # 更新检查时间
-            self.auth_data["last_check_time"] = current_time
-            self._save_auth_data()
 
             if not need_refresh:
                 logger.info("Cookie无需刷新")
