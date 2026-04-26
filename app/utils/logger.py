@@ -10,7 +10,8 @@ def get_logger(name: str = "bili") -> logging.Logger:
     if logger.handlers:
         return logger
 
-    logger.setLevel(getattr(logging, Config.LOG_LEVEL.upper(), logging.INFO))
+    log_level = getattr(logging, Config.LOG_LEVEL.upper(), logging.INFO)
+    logger.setLevel(log_level)
 
     log_dir = "logs"
     os.makedirs(log_dir, exist_ok=True)
@@ -24,12 +25,12 @@ def get_logger(name: str = "bili") -> logging.Logger:
     )
     # 轮转后在新文件名前加日期后缀
     handler.suffix = "%Y-%m-%d.log"
-    handler.setLevel(logging.INFO)
+    handler.setLevel(log_level)
     format_str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     handler.setFormatter(logging.Formatter(format_str))
 
     console = logging.StreamHandler()
-    console.setLevel(logging.INFO)
+    console.setLevel(log_level)
     console.setFormatter(logging.Formatter(format_str))
 
     logger.addHandler(handler)
