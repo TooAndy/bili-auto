@@ -1,4 +1,12 @@
 
+## [1.0.8](https://github.com/TooAndy/bili-auto/releases/tag/v1.0.8) (2026-04-26T04:41:20Z)
+
+### Changes
+
+* fix: correct cookie check time update logic (#19) ([c223c00](https://github.com/TooAndy/bili-auto/commit/c223c005831df1a0fb2e84c3cbde547e6a7a0c6d))
+* chore: update uv.lock with Tsinghua PyPI mirror ([a968322](https://github.com/TooAndy/bili-auto/commit/a96832226c7b2ef64664b3c86b92bf511d7585bc))
+* fix: set logger handler levels from LOG_LEVEL config ([c183f5b](https://github.com/TooAndy/bili-auto/commit/c183f5b82d96b83141ea24d0d79a6a53d13261c3))
+
 ## [1.0.7](https://github.com/TooAndy/bili-auto/releases/tag/v1.0.7) (2026-04-22T12:24:54Z)
 
 ### Changes
