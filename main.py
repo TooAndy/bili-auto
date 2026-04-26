@@ -21,7 +21,7 @@ def main():
     try:
         new_cookie = check_and_refresh_cookie()
         if new_cookie:
-            logger.info("Cookie 已刷新，请重启程序以使用新 Cookie")
+            logger.info("Cookie 已刷新并更新到当前进程")
     except Exception as e:
         logger.warning(f"Cookie 检查失败: {e}")
 
