@@ -272,9 +272,8 @@ def process_single_video(bvid: str):
             md_content += "---\n\n"
             md_content += summary_data["details"]
 
-            if not paths["summary"].exists():
-                paths["summary"].write_text(md_content, "utf-8")
-                logger.debug("[保存] 详情已保存: %s", paths["summary"])
+            paths["summary"].write_text(md_content, "utf-8")
+            logger.debug("[保存] 详情已保存: %s", paths["summary"])
 
             # 上传到飞书文档
             doc_url = None
