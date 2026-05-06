@@ -1,4 +1,10 @@
 
+## [1.0.9](https://github.com/TooAndy/bili-auto/releases/tag/v1.0.9) (2026-05-06T00:46:01Z)
+
+### Changes
+
+* feat: 在推送消息标题中添加 UP 主名字 (#20) ([e3d4df0](https://github.com/TooAndy/bili-auto/commit/e3d4df0d610f0930fc86328cfd7e3a7387e01660))
+
 ## [1.0.8](https://github.com/TooAndy/bili-auto/releases/tag/v1.0.8) (2026-04-26T04:41:20Z)
 
 ### Changes
